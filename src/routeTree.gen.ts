@@ -12,7 +12,6 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as SlugRouteImport } from './routes/$slug'
 import { Route as AuthRouteImport } from './routes/auth'
-import { Route as ApiPublicOwnerSelftestRouteImport } from './routes/api/public/owner-selftest'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -29,44 +28,35 @@ const AuthRoute = AuthRouteImport.update({
   path: '/auth',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ApiPublicOwnerSelftestRoute = ApiPublicOwnerSelftestRouteImport.update({
-  id: '/api/public/owner-selftest',
-  path: '/api/public/owner-selftest',
-  getParentRoute: () => rootRouteImport,
-} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/$slug': typeof SlugRoute
   '/auth': typeof AuthRoute
-  '/api/public/owner-selftest': typeof ApiPublicOwnerSelftestRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/$slug': typeof SlugRoute
   '/auth': typeof AuthRoute
-  '/api/public/owner-selftest': typeof ApiPublicOwnerSelftestRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/$slug': typeof SlugRoute
   '/auth': typeof AuthRoute
-  '/api/public/owner-selftest': typeof ApiPublicOwnerSelftestRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/$slug' | '/auth' | '/api/public/owner-selftest'
+  fullPaths: '/' | '/$slug' | '/auth'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/$slug' | '/auth' | '/api/public/owner-selftest'
-  id: '__root__' | '/' | '/$slug' | '/auth' | '/api/public/owner-selftest'
+  to: '/' | '/$slug' | '/auth'
+  id: '__root__' | '/' | '/$slug' | '/auth'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   SlugRoute: typeof SlugRoute
   AuthRoute: typeof AuthRoute
-  ApiPublicOwnerSelftestRoute: typeof ApiPublicOwnerSelftestRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -92,13 +82,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/api/public/owner-selftest': {
-      id: '/api/public/owner-selftest'
-      path: '/api/public/owner-selftest'
-      fullPath: '/api/public/owner-selftest'
-      preLoaderRoute: typeof ApiPublicOwnerSelftestRouteImport
-      parentRoute: typeof rootRouteImport
-    }
   }
 }
 
@@ -106,7 +89,6 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   SlugRoute: SlugRoute,
   AuthRoute: AuthRoute,
-  ApiPublicOwnerSelftestRoute: ApiPublicOwnerSelftestRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
