@@ -36,7 +36,7 @@ export const captureCampaignHtml = createServerFn({ method: "POST" })
 
     const { data: campaign, error } = await supabase
       .from("campaigns")
-      .select("id, slug, campaign_name, destination_url, html_creative, raw_source, mailer_html")
+      .select("id, slug, campaign_name, offer, destination_url, html_creative, raw_source, mailer_html")
       .eq("id", data.campaignId)
       .maybeSingle();
 
@@ -117,7 +117,7 @@ export const captureCampaignHtml = createServerFn({ method: "POST" })
     const mailer =
       campaign.mailer_html && campaign.mailer_html.trim() && !data.force
         ? campaign.mailer_html
-        : buildMailerHtml(portable, { ctaUrl, campaignName: campaign.campaign_name });
+        : buildMailerHtml(portable, { ctaUrl, campaignName: campaign.campaign_name, offer: campaign.offer });
 
     const { error: saveError } = await supabase
       .from("campaigns")
@@ -152,7 +152,7 @@ export const regenerateMailerHtml = createServerFn({ method: "POST" })
     const { supabase } = context;
     const { data: campaign, error } = await supabase
       .from("campaigns")
-      .select("id, slug, campaign_name, html_creative")
+      .select("id, slug, campaign_name, offer, html_creative")
       .eq("id", data.campaignId)
       .maybeSingle();
 
@@ -164,6 +164,7 @@ export const regenerateMailerHtml = createServerFn({ method: "POST" })
       ctaUrl: `${BRAND_DOMAIN}/${campaign.slug}`,
       ctaLabel: data.ctaLabel,
       campaignName: campaign.campaign_name,
+      offer: campaign.offer,
     });
 
     const { error: saveError } = await supabase
