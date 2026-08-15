@@ -6,6 +6,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "sonner";
+import logoAsset from "@/assets/ignitionbrain-campaigns.png.asset.json";
+
 
 export const Route = createFileRoute("/auth")({
   head: () => ({
@@ -66,12 +68,21 @@ function AuthPage() {
   };
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-background px-4 py-10">
-      <Card className="w-full max-w-sm">
+    <main className="flex min-h-screen flex-col items-center justify-center bg-background px-4 py-10">
+      <img
+        src={logoAsset.url}
+        alt="IgnitionBrain Campaigns"
+        className="mb-8 w-full max-w-sm rounded-xl"
+      />
+      <Card className="w-full max-w-sm border-border/80">
         <CardHeader>
-          <CardTitle className="font-display text-2xl">Campaign Library</CardTitle>
+          <CardTitle className="font-display text-2xl">
+            {mode === "signin" ? "Owner sign in" : "Create owner account"}
+          </CardTitle>
           <CardDescription>
-            {mode === "signin" ? "Sign in to manage your tracking links." : "Create your admin account."}
+            {mode === "signin"
+              ? "Private access for the IgnitionBrain Campaigns owner."
+              : "One-time setup. Once the owner account exists, registration closes permanently."}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -100,18 +111,22 @@ function AuthPage() {
               />
             </div>
             <Button type="submit" variant="brand" className="w-full" disabled={busy}>
-              {mode === "signin" ? "Sign in" : "Create account"}
+              {mode === "signin" ? "Sign in" : "Create owner account"}
             </Button>
           </form>
           <button
             type="button"
-            className="mt-4 w-full text-sm text-muted-foreground underline-offset-4 hover:underline"
+            className="mt-4 w-full text-sm text-muted-foreground underline-offset-4 hover:text-brand hover:underline"
             onClick={() => setMode(mode === "signin" ? "signup" : "signin")}
           >
-            {mode === "signin" ? "Need an account? Sign up" : "Already have an account? Sign in"}
+            {mode === "signin" ? "First-time setup? Create the owner account" : "Back to sign in"}
           </button>
+          <p className="mt-4 text-center text-xs text-muted-foreground">
+            Registration is limited to a single owner account.
+          </p>
         </CardContent>
       </Card>
     </main>
   );
 }
+
