@@ -24,9 +24,12 @@ import {
 } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
-import { Code2, Copy, Eye, LinkIcon, LogOut, Pencil, Plus, Files } from "lucide-react";
+import { Code2, Copy, Eye, LinkIcon, LogOut, Pencil, Plus, Files, RefreshCw } from "lucide-react";
 import logoAsset from "@/assets/ignitionbrain-campaigns.png.asset.json";
 import { InstallAppButton } from "@/components/install-app-button";
+import { useServerFn } from "@tanstack/react-start";
+import { captureCampaignHtml } from "@/lib/html-capture.functions";
+
 
 
 
@@ -103,6 +106,43 @@ function CampaignLibrary() {
   const [htmlTarget, setHtmlTarget] = useState<Campaign | null>(null);
   const [htmlDraft, setHtmlDraft] = useState("");
   const [previewing, setPreviewing] = useState(false);
+  const [htmlStatus, setHtmlStatus] = useState<string | null>(null);
+  const [fetchingHtml, setFetchingHtml] = useState(false);
+  const captureHtml = useServerFn(captureCampaignHtml);
+
+  const runCapture = async (campaign: Campaign, force: boolean) => {
+    setFetchingHtml(true);
+    setHtmlStatus("Fetching HTML…");
+    try {
+      const res = await captureHtml({ data: { campaignId: campaign.id, force } });
+      if (res.status === "error" || !res.html) {
+        setHtmlStatus(res.message ?? "Unable to capture HTML");
+        return false;
+      }
+      setHtmlDraft(res.html);
+      setHtmlStatus(res.status === "cached" ? "Saved HTML loaded" : "HTML captured and saved");
+      void load();
+      return true;
+    } catch {
+      setHtmlStatus("Unable to capture HTML");
+      return false;
+    } finally {
+      setFetchingHtml(false);
+    }
+  };
+
+  const openHtml = (c: Campaign) => {
+    setHtmlTarget(c);
+    setHtmlDraft(c.html_creative);
+    setPreviewing(false);
+    if (c.html_creative && c.html_creative.trim()) {
+      setHtmlStatus("Saved snapshot");
+    } else {
+      setHtmlStatus(null);
+      void runCapture(c, false);
+    }
+  };
+
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
@@ -204,13 +244,18 @@ function CampaignLibrary() {
       is_active: form.is_active,
     };
     let error;
+    let newId: string | null = null;
     if (editingId) {
       ({ error } = await supabase.from("campaigns").update(payload).eq("id", editingId));
     } else {
       const { data: session } = await supabase.auth.getUser();
-      ({ error } = await supabase
+      const inserted = await supabase
         .from("campaigns")
-        .insert({ ...payload, user_id: session.user!.id }));
+        .insert({ ...payload, user_id: session.user!.id })
+        .select("id")
+        .single();
+      error = inserted.error;
+      newId = inserted.data?.id ?? null;
     }
     setSaving(false);
     if (error) {
@@ -220,7 +265,26 @@ function CampaignLibrary() {
     toast.success(editingId ? "Campaign updated" : "Campaign created");
     setFormOpen(false);
     void load();
+
+    // Auto-capture the destination page HTML for new campaigns without a creative.
+    if (newId && !payload.html_creative.trim()) {
+      const id = newId;
+      void (async () => {
+        try {
+          const res = await captureHtml({ data: { campaignId: id, force: false } });
+          if (res.status === "error" || !res.html) {
+            toast.error(`HTML not captured — ${res.message}`);
+          } else {
+            toast.success("HTML captured from destination page");
+          }
+        } catch {
+          toast.error("HTML not captured");
+        }
+        void load();
+      })();
+    }
   };
+
 
   const toggleActive = async (c: Campaign) => {
     const { error } = await supabase
@@ -351,14 +415,7 @@ function CampaignLibrary() {
                 <Button size="sm" variant="brand" onClick={() => copy(`${BRAND_DOMAIN}/${c.slug}`, "Link")}>
                   <Copy /> Copy Link
                 </Button>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => {
-                    setHtmlTarget(c);
-                    setHtmlDraft(c.html_creative);
-                    setPreviewing(false);
-                  }}
+                <Button size="sm" variant="outline" onClick={() => openHtml(c)}
                 >
                   <Code2 /> HTML Code
                 </Button>
@@ -471,10 +528,15 @@ function CampaignLibrary() {
             <DialogTitle className="break-words">{htmlTarget?.campaign_name} — HTML</DialogTitle>
             <DialogDescription>Raw creative source. Copy it straight into HercuList.</DialogDescription>
           </DialogHeader>
-          <Button variant="brand" className="w-full" onClick={() => copy(htmlDraft, "HTML")}>
+          <Button
+            variant="brand"
+            className="w-full"
+            disabled={!htmlDraft.trim()}
+            onClick={() => copy(htmlDraft, "HTML")}
+          >
             <Copy /> Copy All HTML
           </Button>
-          <div className="flex gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <Button
               size="sm"
               variant={previewing ? "outline" : "secondary"}
@@ -489,7 +551,26 @@ function CampaignLibrary() {
             >
               <Eye /> Preview
             </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={fetchingHtml || !htmlTarget}
+              onClick={() => {
+                if (!htmlTarget) return;
+                if (
+                  htmlDraft.trim() &&
+                  !window.confirm("Replace the saved HTML snapshot with a fresh copy of the destination page?")
+                )
+                  return;
+                void runCapture(htmlTarget, true);
+              }}
+            >
+              <RefreshCw /> {fetchingHtml ? "Fetching…" : "Refresh From Page"}
+            </Button>
           </div>
+          {htmlStatus && (
+            <p className="text-xs text-muted-foreground">{htmlStatus}</p>
+          )}
           <div className="min-h-0 flex-1 overflow-auto">
             {previewing ? (
               <iframe
@@ -502,6 +583,11 @@ function CampaignLibrary() {
               <Textarea
                 value={htmlDraft}
                 onChange={(e) => setHtmlDraft(e.target.value)}
+                placeholder={
+                  fetchingHtml
+                    ? "Fetching HTML from the destination page…"
+                    : "No HTML captured yet — use Refresh From Page to fetch the destination, or paste your own creative."
+                }
                 className="h-[50vh] font-mono text-xs"
               />
             )}
@@ -511,6 +597,7 @@ function CampaignLibrary() {
               Save HTML
             </Button>
           </DialogFooter>
+
         </DialogContent>
       </Dialog>
     </main>
