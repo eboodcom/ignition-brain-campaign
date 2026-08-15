@@ -26,6 +26,8 @@ import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
 import { Code2, Copy, Eye, LinkIcon, LogOut, Pencil, Plus, Files } from "lucide-react";
 import logoAsset from "@/assets/ignitionbrain-campaigns.png.asset.json";
+import { InstallAppButton } from "@/components/install-app-button";
+
 
 
 export const BRAND_DOMAIN = "https://go.dailyincomesteps.com";
@@ -263,12 +265,14 @@ function CampaignLibrary() {
               <p className="text-xs uppercase tracking-[0.2em] text-brand">Daily Income Steps</p>
               <h1 className="truncate text-2xl font-bold">Campaign Library</h1>
             </div>
+            <InstallAppButton />
             <Button variant="brand" size="sm" onClick={openCreate}>
               <Plus /> New
             </Button>
             <Button
               variant="ghost"
               size="sm"
+              title="Sign out"
               onClick={async () => {
                 await supabase.auth.signOut();
                 navigate({ to: "/auth" });
@@ -277,6 +281,7 @@ function CampaignLibrary() {
               <LogOut />
             </Button>
           </div>
+
         </div>
       </header>
 
