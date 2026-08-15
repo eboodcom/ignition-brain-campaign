@@ -244,13 +244,18 @@ function CampaignLibrary() {
       is_active: form.is_active,
     };
     let error;
+    let newId: string | null = null;
     if (editingId) {
       ({ error } = await supabase.from("campaigns").update(payload).eq("id", editingId));
     } else {
       const { data: session } = await supabase.auth.getUser();
-      ({ error } = await supabase
+      const inserted = await supabase
         .from("campaigns")
-        .insert({ ...payload, user_id: session.user!.id }));
+        .insert({ ...payload, user_id: session.user!.id })
+        .select("id")
+        .single();
+      error = inserted.error;
+      newId = inserted.data?.id ?? null;
     }
     setSaving(false);
     if (error) {
@@ -260,7 +265,26 @@ function CampaignLibrary() {
     toast.success(editingId ? "Campaign updated" : "Campaign created");
     setFormOpen(false);
     void load();
+
+    // Auto-capture the destination page HTML for new campaigns without a creative.
+    if (newId && !payload.html_creative.trim()) {
+      const id = newId;
+      void (async () => {
+        try {
+          const res = await captureHtml({ data: { campaignId: id, force: false } });
+          if (res.status === "error" || !res.html) {
+            toast.error(`HTML not captured — ${res.message}`);
+          } else {
+            toast.success("HTML captured from destination page");
+          }
+        } catch {
+          toast.error("HTML not captured");
+        }
+        void load();
+      })();
+    }
   };
+
 
   const toggleActive = async (c: Campaign) => {
     const { error } = await supabase
