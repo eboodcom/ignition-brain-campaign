@@ -373,6 +373,23 @@ function CampaignLibrary() {
     setFormOpen(false);
     void load();
 
+    // Auto-create + verify the redirect mapping for the new campaign.
+    if (newId) {
+      const rid = newId;
+      void (async () => {
+        try {
+          const res = await makeRedirect({ data: { campaignId: rid, origin: window.location.origin } });
+          if (!res.ok) toast.error(`Redirect not generated — ${res.message}`);
+          else {
+            const check = await testRedirect({ data: { campaignId: rid, origin: window.location.origin } });
+            setChecks((prev) => ({ ...prev, [rid]: check as RedirectCheck }));
+          }
+        } catch {
+          toast.error("Redirect not generated");
+        }
+      })();
+    }
+
     // Auto-capture the destination page HTML for new campaigns without a creative.
     if (newId && !payload.html_creative.trim()) {
       const id = newId;
@@ -454,6 +471,20 @@ function CampaignLibrary() {
 
         </div>
       </header>
+
+      {domainStatus && !domainStatus.connected && (
+        <div className="mx-auto max-w-5xl px-4 pt-4">
+          <div className="rounded-md border border-destructive/40 bg-destructive/10 p-3 text-sm">
+            <p className="font-semibold text-destructive">Custom domain not connected</p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              go.dailyincomesteps.com is not serving this app yet ({domainStatus.detail}). Connect it in
+              Project Settings → Domains, add it as a subdomain, and follow the DNS records Lovable shows
+              there. Until then use the temporary working link:{" "}
+              <span className="font-mono break-all">{origin}/&#123;slug&#125;</span>
+            </p>
+          </div>
+        </div>
+      )}
 
 
       <section className="mx-auto max-w-5xl px-4 py-6">
@@ -837,7 +868,7 @@ function RedirectBadge({
   isActive,
   domainConnected,
 }: {
-  check?: RedirectCheck;
+  check?: RedirectCheck | undefined;
   isActive: boolean;
   domainConnected: boolean;
 }) {
