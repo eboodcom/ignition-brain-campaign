@@ -132,6 +132,26 @@ function CampaignLibrary() {
   const testRedirect = useServerFn(verifyRedirect);
   const brandDomainCheck = useServerFn(checkBrandDomain);
   const [domainStatus, setDomainStatus] = useState<{ connected: boolean; detail: string } | null>(null);
+  const [domainHelpOpen, setDomainHelpOpen] = useState(false);
+  const [verifyingDomain, setVerifyingDomain] = useState(false);
+
+  const runDomainCheck = async (notify = false) => {
+    setVerifyingDomain(true);
+    try {
+      const res = await brandDomainCheck();
+      setDomainStatus({ connected: res.connected, detail: res.detail });
+      if (notify) {
+        if (res.connected) toast.success("Branded domain is connected");
+        else toast.error(`Not connected — ${res.detail}`);
+      }
+    } catch {
+      setDomainStatus({ connected: false, detail: "Domain status unknown" });
+      if (notify) toast.error("Could not check the domain");
+    } finally {
+      setVerifyingDomain(false);
+    }
+  };
+
   const [checks, setChecks] = useState<Record<string, RedirectCheck>>({});
   const [busyId, setBusyId] = useState<string | null>(null);
 
@@ -265,15 +285,9 @@ function CampaignLibrary() {
 
   useEffect(() => {
     if (!ready) return;
-    void (async () => {
-      try {
-        const res = await brandDomainCheck();
-        setDomainStatus({ connected: res.connected, detail: res.detail });
-      } catch {
-        setDomainStatus({ connected: false, detail: "Domain status unknown" });
-      }
-    })();
+    void runDomainCheck();
     // eslint-disable-next-line react-hooks/exhaustive-deps
+
   }, [ready]);
 
   const filtered = useMemo(
@@ -472,19 +486,99 @@ function CampaignLibrary() {
         </div>
       </header>
 
-      {domainStatus && !domainStatus.connected && (
-        <div className="mx-auto max-w-5xl px-4 pt-4">
-          <div className="rounded-md border border-destructive/40 bg-destructive/10 p-3 text-sm">
-            <p className="font-semibold text-destructive">Custom domain not connected</p>
-            <p className="mt-1 text-xs text-muted-foreground">
-              go.dailyincomesteps.com is not serving this app yet ({domainStatus.detail}). Connect it in
-              Project Settings → Domains, add it as a subdomain, and follow the DNS records Lovable shows
-              there. Until then use the temporary working link:{" "}
-              <span className="font-mono break-all">{origin}/&#123;slug&#125;</span>
-            </p>
+      <div className="mx-auto max-w-5xl px-4 pt-4">
+        <Card
+          className={`p-4 ${domainStatus?.connected ? "border-success/40" : "border-destructive/40 bg-destructive/5"}`}
+        >
+          <div className="flex flex-wrap items-start gap-2">
+            <div className="min-w-0 flex-1">
+              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-brand">
+                Branded domain
+              </p>
+              <p className="mt-1 font-mono text-sm break-all">go.dailyincomesteps.com</p>
+            </div>
+            <Badge
+              className={
+                domainStatus?.connected
+                  ? "bg-success text-background"
+                  : "bg-destructive text-destructive-foreground"
+              }
+            >
+              {domainStatus === null ? "Checking…" : domainStatus.connected ? "Connected" : "Not Connected"}
+            </Badge>
           </div>
-        </div>
-      )}
+
+          <dl className="mt-3 space-y-2 text-sm">
+            <Row label="Status">
+              <span className="text-muted-foreground">
+                {domainStatus === null ? "Checking…" : domainStatus.detail}
+              </span>
+            </Row>
+            <Row label="Working test domain">
+              <span className="font-mono break-all text-muted-foreground">
+                {origin.replace(/^https?:\/\//, "") || "ignition-brain-campaign.lovable.app"}
+              </span>
+            </Row>
+            <Row label="Planned branded domain">
+              <span className="font-mono break-all text-muted-foreground">go.dailyincomesteps.com</span>
+            </Row>
+          </dl>
+
+          {!domainStatus?.connected && (
+            <p className="mt-3 text-xs text-muted-foreground">
+              Your redirect mappings already exist and work on the test domain. Only the custom domain
+              still needs connecting.
+            </p>
+          )}
+
+          <div className="mt-3 flex flex-wrap gap-2">
+            <Button size="sm" variant="brand" onClick={() => setDomainHelpOpen(true)}>
+              <LinkIcon /> Connect Branded Domain
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={verifyingDomain}
+              onClick={() => void runDomainCheck(true)}
+            >
+              <RefreshCw /> {verifyingDomain ? "Verifying…" : "Verify Domain"}
+            </Button>
+          </div>
+        </Card>
+      </div>
+
+      <Dialog open={domainHelpOpen} onOpenChange={setDomainHelpOpen}>
+        <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Connect go.dailyincomesteps.com</DialogTitle>
+            <DialogDescription>
+              Lovable domain settings live in the project editor, so connect it there and come back.
+            </DialogDescription>
+          </DialogHeader>
+          <ol className="list-decimal space-y-2 pl-5 text-sm text-muted-foreground">
+            <li>Open Project Settings.</li>
+            <li>Go to Domains.</li>
+            <li>Choose Connect Domain.</li>
+            <li>
+              Enter <span className="font-mono text-foreground">go.dailyincomesteps.com</span>
+            </li>
+            <li>Apply the DNS records Lovable gives you at your registrar.</li>
+            <li>Return here and press Verify Domain.</li>
+          </ol>
+          <DialogFooter className="flex-wrap gap-2">
+            <Button
+              variant="outline"
+              onClick={() => copy("go.dailyincomesteps.com", "Domain")}
+            >
+              <Copy /> Copy Domain
+            </Button>
+            <Button variant="brand" disabled={verifyingDomain} onClick={() => void runDomainCheck(true)}>
+              <RefreshCw /> Verify Domain
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
 
 
       <section className="mx-auto max-w-5xl px-4 py-6">
@@ -556,7 +650,22 @@ function CampaignLibrary() {
                       {origin}/{c.slug}
                     </span>
                   </Row>
+                  <Row label="Redirect mapping">
+                    <span className="text-success">
+                      {checks[c.id]?.overall === "not-generated" ? "Not generated" : "Ready"}
+                    </span>
+                  </Row>
+                  <Row label="Branded domain">
+                    <span className={domainStatus?.connected ? "text-success" : "text-destructive"}>
+                      {domainStatus === null
+                        ? "Checking…"
+                        : domainStatus.connected
+                          ? "Connected"
+                          : "Not Connected"}
+                    </span>
+                  </Row>
                 </dl>
+
                 <div className="mt-3 flex flex-wrap gap-2">
                   <Button
                     size="sm"
