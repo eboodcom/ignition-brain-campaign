@@ -258,6 +258,24 @@ function CampaignLibrary() {
     if (ready) void load();
   }, [ready]);
 
+  const [origin, setOrigin] = useState("");
+  useEffect(() => {
+    setOrigin(window.location.origin);
+  }, []);
+
+  useEffect(() => {
+    if (!ready) return;
+    void (async () => {
+      try {
+        const res = await brandDomainCheck();
+        setDomainStatus({ connected: res.connected, detail: res.detail });
+      } catch {
+        setDomainStatus({ connected: false, detail: "Domain status unknown" });
+      }
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ready]);
+
   const filtered = useMemo(
     () =>
       rows.filter(
@@ -692,16 +710,43 @@ function CampaignLibrary() {
             </Button>
           </div>
 
+          {tab === "mailer" && domainStatus && !domainStatus.connected && (
+            <p className="rounded-md border border-destructive/40 bg-destructive/10 p-2 text-xs text-destructive">
+              Branded redirect domain is not live yet. Links to {BRAND_DOMAIN} will not work until
+              go.dailyincomesteps.com is connected — use the temporary working link for testing.
+            </p>
+          )}
           <Button
             variant="brand"
             className="w-full"
             disabled={!activeHtml.trim()}
-            onClick={() =>
-              copy(activeHtml, tab === "mailer" ? "Mailer HTML" : "Page HTML")
-            }
+            onClick={() => {
+              if (
+                tab === "mailer" &&
+                domainStatus &&
+                !domainStatus.connected &&
+                !window.confirm(
+                  "Branded redirect domain is not live yet. Copy this mailer HTML with the branded links anyway?",
+                )
+              )
+                return;
+              copy(activeHtml, tab === "mailer" ? "Mailer HTML" : "Page HTML");
+            }}
           >
             <Copy /> {tab === "mailer" ? "COPY MAILER HTML" : "COPY PAGE HTML"}
           </Button>
+          {tab === "mailer" && origin && (
+            <Button
+              variant="outline"
+              className="w-full"
+              disabled={!mailerDraft.trim()}
+              onClick={() =>
+                copy(mailerDraft.split(BRAND_DOMAIN).join(origin), "Mailer HTML (temporary link)")
+              }
+            >
+              <LinkIcon /> Use Temporary Working Link
+            </Button>
+          )}
 
           <div className="flex flex-wrap items-center gap-2">
             <Button
@@ -785,6 +830,39 @@ function CampaignLibrary() {
 
     </main>
   );
+}
+
+function RedirectBadge({
+  check,
+  isActive,
+  domainConnected,
+}: {
+  check?: RedirectCheck;
+  isActive: boolean;
+  domainConnected: boolean;
+}) {
+  let label = "Not verified";
+  let className = "bg-muted text-muted-foreground";
+  if (!isActive) {
+    label = "Inactive";
+  } else if (check) {
+    if (check.overall === "working") {
+      label = domainConnected ? "Working" : "Working (test URL)";
+      className = "bg-success text-background";
+    } else if (check.overall === "not-generated") {
+      label = "Not Generated";
+      className = "bg-destructive text-destructive-foreground";
+    } else if (check.overall === "destination-error") {
+      label = "Destination Error";
+      className = "bg-destructive text-destructive-foreground";
+    } else {
+      label = "Inactive";
+    }
+  }
+  if (isActive && !domainConnected && (!check || check.overall !== "working")) {
+    label = check ? label : "Not verified";
+  }
+  return <Badge className={className}>{label}</Badge>;
 }
 
 function Row({ label, children }: { label: string; children: React.ReactNode }) {
