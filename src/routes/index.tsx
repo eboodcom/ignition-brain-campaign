@@ -29,6 +29,18 @@ import logoAsset from "@/assets/ignitionbrain-campaigns.png.asset.json";
 import { InstallAppButton } from "@/components/install-app-button";
 import { useServerFn } from "@tanstack/react-start";
 import { captureCampaignHtml, regenerateMailerHtml } from "@/lib/html-capture.functions";
+import { checkBrandDomain, generateRedirect, verifyRedirect } from "@/lib/redirect.functions";
+
+type RedirectCheck = {
+  overall: "working" | "not-generated" | "inactive" | "destination-error";
+  mapping: string;
+  appRoute: string;
+  brandedDomain: string;
+  destination: string;
+  shortUrl: string;
+  testUrl: string;
+  domainConnected: boolean;
+};
 
 
 
@@ -116,6 +128,48 @@ function CampaignLibrary() {
   const regenerateMailer = useServerFn(regenerateMailerHtml);
   const activeHtml = tab === "mailer" ? mailerDraft : htmlDraft;
 
+  const makeRedirect = useServerFn(generateRedirect);
+  const testRedirect = useServerFn(verifyRedirect);
+  const brandDomainCheck = useServerFn(checkBrandDomain);
+  const [domainStatus, setDomainStatus] = useState<{ connected: boolean; detail: string } | null>(null);
+  const [checks, setChecks] = useState<Record<string, RedirectCheck>>({});
+  const [busyId, setBusyId] = useState<string | null>(null);
+
+  const runVerify = async (c: Campaign, notify = true) => {
+    setBusyId(c.id);
+    try {
+      const res = await testRedirect({ data: { campaignId: c.id, origin: window.location.origin } });
+      setChecks((prev) => ({ ...prev, [c.id]: res as RedirectCheck }));
+      if (notify) {
+        if (res.overall === "working") toast.success("Redirect working");
+        else toast.error(`Redirect: ${res.appRoute}`);
+      }
+    } catch {
+      if (notify) toast.error("Could not test the redirect");
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  const runGenerate = async (c: Campaign) => {
+    setBusyId(c.id);
+    try {
+      const res = await makeRedirect({ data: { campaignId: c.id, origin: window.location.origin } });
+      if (!res.ok) {
+        toast.error(res.message);
+        return;
+      }
+      toast.success(res.message);
+      void load();
+    } catch {
+      toast.error("Could not generate the redirect");
+      return;
+    } finally {
+      setBusyId(null);
+    }
+    await runVerify(c, false);
+  };
+
   const runCapture = async (campaign: Campaign, force: boolean) => {
     setFetchingHtml(true);
     setHtmlStatus("Fetching HTML…");
@@ -202,6 +256,24 @@ function CampaignLibrary() {
 
   useEffect(() => {
     if (ready) void load();
+  }, [ready]);
+
+  const [origin, setOrigin] = useState("");
+  useEffect(() => {
+    setOrigin(window.location.origin);
+  }, []);
+
+  useEffect(() => {
+    if (!ready) return;
+    void (async () => {
+      try {
+        const res = await brandDomainCheck();
+        setDomainStatus({ connected: res.connected, detail: res.detail });
+      } catch {
+        setDomainStatus({ connected: false, detail: "Domain status unknown" });
+      }
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ready]);
 
   const filtered = useMemo(
@@ -301,6 +373,23 @@ function CampaignLibrary() {
     setFormOpen(false);
     void load();
 
+    // Auto-create + verify the redirect mapping for the new campaign.
+    if (newId) {
+      const rid = newId;
+      void (async () => {
+        try {
+          const res = await makeRedirect({ data: { campaignId: rid, origin: window.location.origin } });
+          if (!res.ok) toast.error(`Redirect not generated — ${res.message}`);
+          else {
+            const check = await testRedirect({ data: { campaignId: rid, origin: window.location.origin } });
+            setChecks((prev) => ({ ...prev, [rid]: check as RedirectCheck }));
+          }
+        } catch {
+          toast.error("Redirect not generated");
+        }
+      })();
+    }
+
     // Auto-capture the destination page HTML for new campaigns without a creative.
     if (newId && !payload.html_creative.trim()) {
       const id = newId;
@@ -383,6 +472,20 @@ function CampaignLibrary() {
         </div>
       </header>
 
+      {domainStatus && !domainStatus.connected && (
+        <div className="mx-auto max-w-5xl px-4 pt-4">
+          <div className="rounded-md border border-destructive/40 bg-destructive/10 p-3 text-sm">
+            <p className="font-semibold text-destructive">Custom domain not connected</p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              go.dailyincomesteps.com is not serving this app yet ({domainStatus.detail}). Connect it in
+              Project Settings → Domains, add it as a subdomain, and follow the DNS records Lovable shows
+              there. Until then use the temporary working link:{" "}
+              <span className="font-mono break-all">{origin}/&#123;slug&#125;</span>
+            </p>
+          </div>
+        </div>
+      )}
+
 
       <section className="mx-auto max-w-5xl px-4 py-6">
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
@@ -428,13 +531,79 @@ function CampaignLibrary() {
                 </Badge>
               </div>
 
+              <div className="mt-4 rounded-md border border-border p-3">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                    Redirect
+                  </p>
+                  <RedirectBadge
+                    check={checks[c.id]}
+                    isActive={c.is_active}
+                    domainConnected={domainStatus?.connected ?? false}
+                  />
+                </div>
+                <dl className="mt-2 space-y-2 text-sm">
+                  <Row label="From">
+                    <span className="font-mono break-all text-brand">
+                      {BRAND_DOMAIN}/{c.slug}
+                    </span>
+                  </Row>
+                  <Row label="To">
+                    <span className="break-all text-muted-foreground">{c.destination_url}</span>
+                  </Row>
+                  <Row label="Test URL">
+                    <span className="font-mono break-all text-muted-foreground">
+                      {origin}/{c.slug}
+                    </span>
+                  </Row>
+                </dl>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <Button
+                    size="sm"
+                    variant="brand"
+                    onClick={() => copy(`${BRAND_DOMAIN}/${c.slug}`, "Short link")}
+                  >
+                    <Copy /> Copy Short Link
+                  </Button>
+                  <Button size="sm" variant="outline" onClick={() => copy(c.destination_url, "Destination")}>
+                    <Copy /> Copy Destination
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    disabled={busyId === c.id}
+                    onClick={() => void runGenerate(c)}
+                  >
+                    <RefreshCw />{" "}
+                    {checks[c.id]?.overall === "working" ? "Redirect Ready" : "Generate Redirect"}
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    disabled={busyId === c.id}
+                    onClick={() => void runVerify(c)}
+                  >
+                    <LinkIcon /> {busyId === c.id ? "Testing…" : "Test Redirect"}
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => copy(`${window.location.origin}/${c.slug}`, "Test link")}
+                  >
+                    <Copy /> Copy Test URL
+                  </Button>
+                </div>
+                {checks[c.id] && (
+                  <ul className="mt-3 space-y-1 text-xs text-muted-foreground">
+                    <li>Redirect mapping: {checks[c.id]!.mapping}</li>
+                    <li>Lovable route: {checks[c.id]!.appRoute}</li>
+                    <li>Custom domain: {checks[c.id]!.brandedDomain}</li>
+                    <li>Destination: {checks[c.id]!.destination}</li>
+                  </ul>
+                )}
+              </div>
+
               <dl className="mt-4 space-y-2 text-sm">
-                <Row label="Short link">
-                  <span className="font-mono break-all text-brand">{BRAND_DOMAIN}/{c.slug}</span>
-                </Row>
-                <Row label="Destination">
-                  <span className="break-all text-muted-foreground">{c.destination_url}</span>
-                </Row>
                 <Row label="Clicks">
                   <span className="font-semibold">{c.click_count}</span>
                   {c.last_clicked_at && (
@@ -446,11 +615,7 @@ function CampaignLibrary() {
               </dl>
 
               <div className="mt-4 flex flex-wrap gap-2">
-                <Button size="sm" variant="brand" onClick={() => copy(`${BRAND_DOMAIN}/${c.slug}`, "Link")}>
-                  <Copy /> Copy Link
-                </Button>
-                <Button size="sm" variant="outline" onClick={() => openHtml(c)}
-                >
+                <Button size="sm" variant="outline" onClick={() => openHtml(c)}>
                   <Code2 /> HTML Code
                 </Button>
                 <Button size="sm" variant="outline" onClick={() => openEdit(c)}>
@@ -461,13 +626,6 @@ function CampaignLibrary() {
                 </Button>
                 <Button size="sm" variant="ghost" onClick={() => toggleActive(c)}>
                   {c.is_active ? "Disable" : "Enable"}
-                </Button>
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  onClick={() => copy(`${window.location.origin}/${c.slug}`, "Test link")}
-                >
-                  <LinkIcon /> Test URL
                 </Button>
               </div>
             </Card>
@@ -583,16 +741,43 @@ function CampaignLibrary() {
             </Button>
           </div>
 
+          {tab === "mailer" && domainStatus && !domainStatus.connected && (
+            <p className="rounded-md border border-destructive/40 bg-destructive/10 p-2 text-xs text-destructive">
+              Branded redirect domain is not live yet. Links to {BRAND_DOMAIN} will not work until
+              go.dailyincomesteps.com is connected — use the temporary working link for testing.
+            </p>
+          )}
           <Button
             variant="brand"
             className="w-full"
             disabled={!activeHtml.trim()}
-            onClick={() =>
-              copy(activeHtml, tab === "mailer" ? "Mailer HTML" : "Page HTML")
-            }
+            onClick={() => {
+              if (
+                tab === "mailer" &&
+                domainStatus &&
+                !domainStatus.connected &&
+                !window.confirm(
+                  "Branded redirect domain is not live yet. Copy this mailer HTML with the branded links anyway?",
+                )
+              )
+                return;
+              copy(activeHtml, tab === "mailer" ? "Mailer HTML" : "Page HTML");
+            }}
           >
             <Copy /> {tab === "mailer" ? "COPY MAILER HTML" : "COPY PAGE HTML"}
           </Button>
+          {tab === "mailer" && origin && (
+            <Button
+              variant="outline"
+              className="w-full"
+              disabled={!mailerDraft.trim()}
+              onClick={() =>
+                copy(mailerDraft.split(BRAND_DOMAIN).join(origin), "Mailer HTML (temporary link)")
+              }
+            >
+              <LinkIcon /> Use Temporary Working Link
+            </Button>
+          )}
 
           <div className="flex flex-wrap items-center gap-2">
             <Button
@@ -676,6 +861,39 @@ function CampaignLibrary() {
 
     </main>
   );
+}
+
+function RedirectBadge({
+  check,
+  isActive,
+  domainConnected,
+}: {
+  check?: RedirectCheck | undefined;
+  isActive: boolean;
+  domainConnected: boolean;
+}) {
+  let label = "Not verified";
+  let className = "bg-muted text-muted-foreground";
+  if (!isActive) {
+    label = "Inactive";
+  } else if (check) {
+    if (check.overall === "working") {
+      label = domainConnected ? "Working" : "Working (test URL)";
+      className = "bg-success text-background";
+    } else if (check.overall === "not-generated") {
+      label = "Not Generated";
+      className = "bg-destructive text-destructive-foreground";
+    } else if (check.overall === "destination-error") {
+      label = "Destination Error";
+      className = "bg-destructive text-destructive-foreground";
+    } else {
+      label = "Inactive";
+    }
+  }
+  if (isActive && !domainConnected && (!check || check.overall !== "working")) {
+    label = check ? label : "Not verified";
+  }
+  return <Badge className={className}>{label}</Badge>;
 }
 
 function Row({ label, children }: { label: string; children: React.ReactNode }) {
