@@ -175,6 +175,22 @@ function extractBlocks(portable: string): Block[] {
     blocks.push({ type: "text", level, text });
   }
 
+  // Fallback: squeeze pages often put copy in leaf <div>/<td>/<span> nodes.
+  if (blocks.filter((b) => b.type === "text").length < 2) {
+    const leafRe = /<(div|td|span|strong|b)\b[^>]*>((?:(?!<(?:div|td|span|table)\b)[\s\S])*?)<\/\1>/gi;
+    let leaf: RegExpExecArray | null;
+    while ((leaf = leafRe.exec(body))) {
+      const text = decode((leaf[2] ?? "").replace(/<[^>]+>/g, " ")).replace(/\s+/g, " ").trim();
+      if (text.length < 8 || text.length > 400) continue;
+      if (BOILERPLATE.test(text)) continue;
+      const key = text.toLowerCase();
+      if (seenText.has(key)) continue;
+      seenText.add(key);
+      blocks.push({ type: "text", level: text.length > 60 ? 2 : 4, text });
+      if (blocks.length > 24) break;
+    }
+  }
+
   return blocks;
 }
 
