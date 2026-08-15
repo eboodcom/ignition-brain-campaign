@@ -26,6 +26,8 @@ import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
 import { Code2, Copy, Eye, LinkIcon, LogOut, Pencil, Plus, Files } from "lucide-react";
 import logoAsset from "@/assets/ignitionbrain-campaigns.png.asset.json";
+import { InstallAppButton } from "@/components/install-app-button";
+
 
 
 export const BRAND_DOMAIN = "https://go.dailyincomesteps.com";
