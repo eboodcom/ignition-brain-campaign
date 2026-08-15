@@ -285,15 +285,9 @@ function CampaignLibrary() {
 
   useEffect(() => {
     if (!ready) return;
-    void (async () => {
-      try {
-        const res = await brandDomainCheck();
-        setDomainStatus({ connected: res.connected, detail: res.detail });
-      } catch {
-        setDomainStatus({ connected: false, detail: "Domain status unknown" });
-      }
-    })();
+    void runDomainCheck();
     // eslint-disable-next-line react-hooks/exhaustive-deps
+
   }, [ready]);
 
   const filtered = useMemo(
