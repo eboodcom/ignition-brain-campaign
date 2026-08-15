@@ -177,7 +177,7 @@ function extractBlocks(portable: string): Block[] {
 
   // Fallback: squeeze pages often put copy in leaf <div>/<td>/<span> nodes.
   if (blocks.filter((b) => b.type === "text").length < 2) {
-    const leafRe = /<(div|td|span|strong|b)\b[^>]*>((?:(?!<(?:div|td|span|table)\b)[\s\S])*?)<\/\1>/gi;
+    const leafRe = /<(div|td)\b[^>]*>((?:(?!<(?:div|td|table|form)\b)[\s\S])*?)<\/\1>/gi;
     let leaf: RegExpExecArray | null;
     while ((leaf = leafRe.exec(body))) {
       const text = decode((leaf[2] ?? "").replace(/<[^>]+>/g, " ")).replace(/\s+/g, " ").trim();
@@ -192,6 +192,22 @@ function extractBlocks(portable: string): Block[] {
   }
 
   return blocks;
+}
+
+/** Picks up the landing page's own call-to-action wording, when it has one. */
+function extractCtaLabel(portable: string): string | null {
+  const candidates = [
+    /<span[^>]*class="[^"]*elButtonMain[^"]*"[^>]*>([\s\S]*?)<\/span>/i,
+    /<button\b[^>]*>([\s\S]*?)<\/button>/i,
+    /<a\b[^>]*class="[^"]*btn[^"]*"[^>]*>([\s\S]*?)<\/a>/i,
+  ];
+  for (const re of candidates) {
+    const text = decode((re.exec(portable)?.[1] ?? "").replace(/<[^>]+>/g, " "))
+      .replace(/\s+/g, " ")
+      .trim();
+    if (text.length >= 4 && text.length <= 48) return text.toUpperCase();
+  }
+  return null;
 }
 
 export type MailerOptions = {
@@ -215,9 +231,11 @@ export function buildMailerHtml(portable: string, options: MailerOptions): strin
   const title = blocks.find((b) => b.type === "text" && b.level <= 2 && b.text.length > 12);
   const headline = title && title.type === "text" ? title.text : options.campaignName;
 
+  const pageCta = extractCtaLabel(portable);
   const offer = options.offer?.trim();
   const ctaLabel =
     options.ctaLabel?.trim() ||
+    pageCta ||
     (offer && offer.toLowerCase() !== "other"
       ? `SEE HOW ${offer.toUpperCase()} WORKS`
       : "SEE HOW IT WORKS");
