@@ -85,11 +85,14 @@ export function makePortable(html: string, baseUrl: string): string {
  */
 export function findUnresolvedUrls(html: string): string[] {
   const found = new Set<string>();
-  const attrRe = /\s(?:src|href|action|poster|srcset|data-src|background)\s*=\s*(["'])([^"']*)\1/gi;
+  const attrRe = /\s(src|href|action|poster|srcset|data-src|background)\s*=\s*(["'])([^"']*)\2/gi;
   let m: RegExpExecArray | null;
   while ((m = attrRe.exec(html))) {
-    for (const candidate of (m[2] ?? "").split(",")) {
-      const value = candidate.trim().split(/\s+/)[0] ?? "";
+    const isSrcset = (m[1] ?? "").toLowerCase() === "srcset";
+    const raw = m[3] ?? "";
+    const candidates = isSrcset ? raw.split(",") : [raw];
+    for (const candidate of candidates) {
+      const value = (isSrcset ? candidate.trim().split(/\s+/)[0] : candidate.trim()) ?? "";
       if (!value) continue;
       if (/^(https?:|data:|mailto:|tel:|javascript:|#|cid:|\{)/i.test(value)) continue;
       found.add(value);
@@ -128,6 +131,9 @@ function escapeHtml(text: string): string {
     .replace(/"/g, "&quot;");
 }
 
+const BOILERPLATE =
+  /(privacy policy|terms (and|&) conditions|income disclosure|all rights reserved|unsubscribe|cookie|never sell,? rent|anti-?spam|copyright|©)/i;
+
 type Block = { type: "image"; src: string; alt: string } | { type: "text"; level: number; text: string };
 
 /** Extracts headline/copy/image blocks from a portable snapshot, in document order. */
@@ -161,6 +167,7 @@ function extractBlocks(portable: string): Block[] {
     const tag = (m[1] ?? "").toLowerCase();
     const text = decode((m[2] ?? "").replace(/<[^>]+>/g, " ")).replace(/\s+/g, " ").trim();
     if (text.length < 3 || text.length > 600) continue;
+    if (BOILERPLATE.test(text)) continue;
     const key = text.toLowerCase();
     if (seenText.has(key)) continue;
     seenText.add(key);
@@ -175,6 +182,7 @@ export type MailerOptions = {
   ctaUrl: string;
   ctaLabel?: string | undefined;
   campaignName: string;
+  offer?: string | undefined;
   maxImages?: number;
   maxTextBlocks?: number;
 };
@@ -188,14 +196,15 @@ export function buildMailerHtml(portable: string, options: MailerOptions): strin
   const maxText = options.maxTextBlocks ?? 10;
   const blocks = extractBlocks(portable);
 
-  const title =
-    blocks.find((b) => b.type === "text" && b.level <= 2 && b.text.length > 12) ??
-    blocks.find((b) => b.type === "text");
+  const title = blocks.find((b) => b.type === "text" && b.level <= 2 && b.text.length > 12);
   const headline = title && title.type === "text" ? title.text : options.campaignName;
 
+  const offer = options.offer?.trim();
   const ctaLabel =
     options.ctaLabel?.trim() ||
-    (/traffic ignition/i.test(portable) ? "SEE HOW TRAFFIC IGNITION WORKS" : "SEE HOW IT WORKS");
+    (offer && offer.toLowerCase() !== "other"
+      ? `SEE HOW ${offer.toUpperCase()} WORKS`
+      : "SEE HOW IT WORKS");
 
   let imageCount = 0;
   let textCount = 0;
