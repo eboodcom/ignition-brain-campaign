@@ -528,10 +528,15 @@ function CampaignLibrary() {
             <DialogTitle className="break-words">{htmlTarget?.campaign_name} — HTML</DialogTitle>
             <DialogDescription>Raw creative source. Copy it straight into HercuList.</DialogDescription>
           </DialogHeader>
-          <Button variant="brand" className="w-full" onClick={() => copy(htmlDraft, "HTML")}>
+          <Button
+            variant="brand"
+            className="w-full"
+            disabled={!htmlDraft.trim()}
+            onClick={() => copy(htmlDraft, "HTML")}
+          >
             <Copy /> Copy All HTML
           </Button>
-          <div className="flex gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <Button
               size="sm"
               variant={previewing ? "outline" : "secondary"}
@@ -546,7 +551,26 @@ function CampaignLibrary() {
             >
               <Eye /> Preview
             </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={fetchingHtml || !htmlTarget}
+              onClick={() => {
+                if (!htmlTarget) return;
+                if (
+                  htmlDraft.trim() &&
+                  !window.confirm("Replace the saved HTML snapshot with a fresh copy of the destination page?")
+                )
+                  return;
+                void runCapture(htmlTarget, true);
+              }}
+            >
+              <RefreshCw /> {fetchingHtml ? "Fetching…" : "Refresh From Page"}
+            </Button>
           </div>
+          {htmlStatus && (
+            <p className="text-xs text-muted-foreground">{htmlStatus}</p>
+          )}
           <div className="min-h-0 flex-1 overflow-auto">
             {previewing ? (
               <iframe
@@ -559,6 +583,11 @@ function CampaignLibrary() {
               <Textarea
                 value={htmlDraft}
                 onChange={(e) => setHtmlDraft(e.target.value)}
+                placeholder={
+                  fetchingHtml
+                    ? "Fetching HTML from the destination page…"
+                    : "No HTML captured yet — use Refresh From Page to fetch the destination, or paste your own creative."
+                }
                 className="h-[50vh] font-mono text-xs"
               />
             )}
@@ -568,6 +597,7 @@ function CampaignLibrary() {
               Save HTML
             </Button>
           </DialogFooter>
+
         </DialogContent>
       </Dialog>
     </main>
