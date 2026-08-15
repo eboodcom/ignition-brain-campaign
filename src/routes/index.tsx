@@ -106,6 +106,43 @@ function CampaignLibrary() {
   const [htmlTarget, setHtmlTarget] = useState<Campaign | null>(null);
   const [htmlDraft, setHtmlDraft] = useState("");
   const [previewing, setPreviewing] = useState(false);
+  const [htmlStatus, setHtmlStatus] = useState<string | null>(null);
+  const [fetchingHtml, setFetchingHtml] = useState(false);
+  const captureHtml = useServerFn(captureCampaignHtml);
+
+  const runCapture = async (campaign: Campaign, force: boolean) => {
+    setFetchingHtml(true);
+    setHtmlStatus("Fetching HTML…");
+    try {
+      const res = await captureHtml({ data: { campaignId: campaign.id, force } });
+      if (res.status === "error" || !res.html) {
+        setHtmlStatus(res.message ?? "Unable to capture HTML");
+        return false;
+      }
+      setHtmlDraft(res.html);
+      setHtmlStatus(res.status === "cached" ? "Saved HTML loaded" : "HTML captured and saved");
+      void load();
+      return true;
+    } catch {
+      setHtmlStatus("Unable to capture HTML");
+      return false;
+    } finally {
+      setFetchingHtml(false);
+    }
+  };
+
+  const openHtml = (c: Campaign) => {
+    setHtmlTarget(c);
+    setHtmlDraft(c.html_creative);
+    setPreviewing(false);
+    if (c.html_creative && c.html_creative.trim()) {
+      setHtmlStatus("Saved snapshot");
+    } else {
+      setHtmlStatus(null);
+      void runCapture(c, false);
+    }
+  };
+
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
