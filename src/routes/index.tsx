@@ -650,7 +650,22 @@ function CampaignLibrary() {
                       {origin}/{c.slug}
                     </span>
                   </Row>
+                  <Row label="Redirect mapping">
+                    <span className="text-success">
+                      {checks[c.id]?.overall === "not-generated" ? "Not generated" : "Ready"}
+                    </span>
+                  </Row>
+                  <Row label="Branded domain">
+                    <span className={domainStatus?.connected ? "text-success" : "text-destructive"}>
+                      {domainStatus === null
+                        ? "Checking…"
+                        : domainStatus.connected
+                          ? "Connected"
+                          : "Not Connected"}
+                    </span>
+                  </Row>
                 </dl>
+
                 <div className="mt-3 flex flex-wrap gap-2">
                   <Button
                     size="sm"
