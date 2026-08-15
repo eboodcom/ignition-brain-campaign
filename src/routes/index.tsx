@@ -263,12 +263,14 @@ function CampaignLibrary() {
               <p className="text-xs uppercase tracking-[0.2em] text-brand">Daily Income Steps</p>
               <h1 className="truncate text-2xl font-bold">Campaign Library</h1>
             </div>
+            <InstallAppButton />
             <Button variant="brand" size="sm" onClick={openCreate}>
               <Plus /> New
             </Button>
             <Button
               variant="ghost"
               size="sm"
+              title="Sign out"
               onClick={async () => {
                 await supabase.auth.signOut();
                 navigate({ to: "/auth" });
@@ -277,6 +279,7 @@ function CampaignLibrary() {
               <LogOut />
             </Button>
           </div>
+
         </div>
       </header>
 
