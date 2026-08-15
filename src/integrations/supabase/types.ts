@@ -24,7 +24,9 @@ export type Database = {
           id: string
           is_active: boolean
           last_clicked_at: string | null
+          mailer_html: string
           offer: string
+          raw_source: string
           slug: string
           test_number: number | null
           traffic_source: string
@@ -40,7 +42,9 @@ export type Database = {
           id?: string
           is_active?: boolean
           last_clicked_at?: string | null
+          mailer_html?: string
           offer?: string
+          raw_source?: string
           slug: string
           test_number?: number | null
           traffic_source?: string
@@ -56,7 +60,9 @@ export type Database = {
           id?: string
           is_active?: boolean
           last_clicked_at?: string | null
+          mailer_html?: string
           offer?: string
+          raw_source?: string
           slug?: string
           test_number?: number | null
           traffic_source?: string

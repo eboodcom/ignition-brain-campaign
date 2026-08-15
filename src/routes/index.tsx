@@ -28,7 +28,7 @@ import { Code2, Copy, Eye, LinkIcon, LogOut, Pencil, Plus, Files, RefreshCw } fr
 import logoAsset from "@/assets/ignitionbrain-campaigns.png.asset.json";
 import { InstallAppButton } from "@/components/install-app-button";
 import { useServerFn } from "@tanstack/react-start";
-import { captureCampaignHtml } from "@/lib/html-capture.functions";
+import { captureCampaignHtml, regenerateMailerHtml } from "@/lib/html-capture.functions";
 
 
 
@@ -45,6 +45,8 @@ type Campaign = {
   slug: string;
   destination_url: string;
   html_creative: string;
+  raw_source: string;
+  mailer_html: string;
   click_count: number;
   last_clicked_at: string | null;
   is_active: boolean;
@@ -105,10 +107,14 @@ function CampaignLibrary() {
 
   const [htmlTarget, setHtmlTarget] = useState<Campaign | null>(null);
   const [htmlDraft, setHtmlDraft] = useState("");
+  const [mailerDraft, setMailerDraft] = useState("");
+  const [tab, setTab] = useState<"snapshot" | "mailer">("snapshot");
   const [previewing, setPreviewing] = useState(false);
   const [htmlStatus, setHtmlStatus] = useState<string | null>(null);
   const [fetchingHtml, setFetchingHtml] = useState(false);
   const captureHtml = useServerFn(captureCampaignHtml);
+  const regenerateMailer = useServerFn(regenerateMailerHtml);
+  const activeHtml = tab === "mailer" ? mailerDraft : htmlDraft;
 
   const runCapture = async (campaign: Campaign, force: boolean) => {
     setFetchingHtml(true);
@@ -120,7 +126,14 @@ function CampaignLibrary() {
         return false;
       }
       setHtmlDraft(res.html);
-      setHtmlStatus(res.status === "cached" ? "Saved HTML loaded" : "HTML captured and saved");
+      if (res.mailer) setMailerDraft(res.mailer);
+      setHtmlStatus(
+        res.status === "incomplete"
+          ? res.message
+          : res.status === "cached"
+            ? "Saved snapshot loaded"
+            : "Portable snapshot captured and saved",
+      );
       void load();
       return true;
     } catch {
@@ -131,9 +144,31 @@ function CampaignLibrary() {
     }
   };
 
+  const runRegenerate = async () => {
+    if (!htmlTarget) return;
+    setFetchingHtml(true);
+    setHtmlStatus("Rebuilding mailer HTML…");
+    try {
+      const res = await regenerateMailer({ data: { campaignId: htmlTarget.id } });
+      if (res.status === "error" || !res.mailer) {
+        setHtmlStatus(res.message ?? "Could not build mailer HTML");
+        return;
+      }
+      setMailerDraft(res.mailer);
+      setHtmlStatus("Mailer HTML regenerated");
+      void load();
+    } catch {
+      setHtmlStatus("Could not build mailer HTML");
+    } finally {
+      setFetchingHtml(false);
+    }
+  };
+
   const openHtml = (c: Campaign) => {
     setHtmlTarget(c);
     setHtmlDraft(c.html_creative);
+    setMailerDraft(c.mailer_html ?? "");
+    setTab("snapshot");
     setPreviewing(false);
     if (c.html_creative && c.html_creative.trim()) {
       setHtmlStatus("Saved snapshot");
@@ -301,15 +336,14 @@ function CampaignLibrary() {
 
   const saveHtml = async () => {
     if (!htmlTarget) return;
-    const { error } = await supabase
-      .from("campaigns")
-      .update({ html_creative: htmlDraft })
-      .eq("id", htmlTarget.id);
+    const patch =
+      tab === "mailer" ? { mailer_html: mailerDraft } : { html_creative: htmlDraft };
+    const { error } = await supabase.from("campaigns").update(patch).eq("id", htmlTarget.id);
     if (error) {
       toast.error(error.message);
       return;
     }
-    toast.success("HTML saved");
+    toast.success(tab === "mailer" ? "Mailer HTML saved" : "Page HTML saved");
     void load();
   };
 
@@ -526,16 +560,40 @@ function CampaignLibrary() {
         <DialogContent className="flex max-h-[92vh] flex-col sm:max-w-2xl">
           <DialogHeader>
             <DialogTitle className="break-words">{htmlTarget?.campaign_name} — HTML</DialogTitle>
-            <DialogDescription>Raw creative source. Copy it straight into HercuList.</DialogDescription>
+            <DialogDescription>
+              Page Snapshot is the portable copy of the destination page. Mailer HTML is the email-safe
+              version to paste into HercuList.
+            </DialogDescription>
           </DialogHeader>
+
+          <div className="grid grid-cols-2 gap-2">
+            <Button
+              size="sm"
+              variant={tab === "snapshot" ? "secondary" : "outline"}
+              onClick={() => setTab("snapshot")}
+            >
+              Page Snapshot
+            </Button>
+            <Button
+              size="sm"
+              variant={tab === "mailer" ? "secondary" : "outline"}
+              onClick={() => setTab("mailer")}
+            >
+              Mailer HTML
+            </Button>
+          </div>
+
           <Button
             variant="brand"
             className="w-full"
-            disabled={!htmlDraft.trim()}
-            onClick={() => copy(htmlDraft, "HTML")}
+            disabled={!activeHtml.trim()}
+            onClick={() =>
+              copy(activeHtml, tab === "mailer" ? "Mailer HTML" : "Page HTML")
+            }
           >
-            <Copy /> Copy All HTML
+            <Copy /> {tab === "mailer" ? "COPY MAILER HTML" : "COPY PAGE HTML"}
           </Button>
+
           <div className="flex flex-wrap items-center gap-2">
             <Button
               size="sm"
@@ -551,42 +609,58 @@ function CampaignLibrary() {
             >
               <Eye /> Preview
             </Button>
-            <Button
-              size="sm"
-              variant="outline"
-              disabled={fetchingHtml || !htmlTarget}
-              onClick={() => {
-                if (!htmlTarget) return;
-                if (
-                  htmlDraft.trim() &&
-                  !window.confirm("Replace the saved HTML snapshot with a fresh copy of the destination page?")
-                )
-                  return;
-                void runCapture(htmlTarget, true);
-              }}
-            >
-              <RefreshCw /> {fetchingHtml ? "Fetching…" : "Refresh From Page"}
-            </Button>
+            {tab === "snapshot" ? (
+              <Button
+                size="sm"
+                variant="outline"
+                disabled={fetchingHtml || !htmlTarget}
+                onClick={() => {
+                  if (!htmlTarget) return;
+                  if (
+                    htmlDraft.trim() &&
+                    !window.confirm("Replace the saved page snapshot with a fresh copy of the destination page?")
+                  )
+                    return;
+                  void runCapture(htmlTarget, true);
+                }}
+              >
+                <RefreshCw /> {fetchingHtml ? "Fetching…" : "Refresh From Page"}
+              </Button>
+            ) : (
+              <Button
+                size="sm"
+                variant="outline"
+                disabled={fetchingHtml || !htmlTarget}
+                onClick={() => void runRegenerate()}
+              >
+                <RefreshCw /> {fetchingHtml ? "Working…" : "Regenerate From Snapshot"}
+              </Button>
+            )}
           </div>
-          {htmlStatus && (
-            <p className="text-xs text-muted-foreground">{htmlStatus}</p>
-          )}
+          {htmlStatus && <p className="text-xs text-muted-foreground">{htmlStatus}</p>}
+
           <div className="min-h-0 flex-1 overflow-auto">
             {previewing ? (
-              <iframe
-                title="Creative preview"
-                sandbox=""
-                srcDoc={htmlDraft}
-                className="h-[50vh] w-full rounded-md border border-border bg-white"
-              />
+              <div className={tab === "mailer" ? "mx-auto w-full max-w-[600px]" : "w-full"}>
+                <iframe
+                  title={tab === "mailer" ? "Mailer preview" : "Page snapshot preview"}
+                  sandbox=""
+                  srcDoc={activeHtml}
+                  className="h-[50vh] w-full rounded-md border border-border bg-white"
+                />
+              </div>
             ) : (
               <Textarea
-                value={htmlDraft}
-                onChange={(e) => setHtmlDraft(e.target.value)}
+                value={activeHtml}
+                onChange={(e) =>
+                  tab === "mailer" ? setMailerDraft(e.target.value) : setHtmlDraft(e.target.value)
+                }
                 placeholder={
                   fetchingHtml
-                    ? "Fetching HTML from the destination page…"
-                    : "No HTML captured yet — use Refresh From Page to fetch the destination, or paste your own creative."
+                    ? "Working…"
+                    : tab === "mailer"
+                      ? "No mailer HTML yet — use Regenerate From Snapshot."
+                      : "No snapshot captured yet — use Refresh From Page."
                 }
                 className="h-[50vh] font-mono text-xs"
               />
@@ -594,12 +668,12 @@ function CampaignLibrary() {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={saveHtml}>
-              Save HTML
+              Save {tab === "mailer" ? "Mailer HTML" : "Page HTML"}
             </Button>
           </DialogFooter>
-
         </DialogContent>
       </Dialog>
+
     </main>
   );
 }
