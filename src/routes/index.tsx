@@ -250,26 +250,34 @@ function CampaignLibrary() {
   return (
     <main className="min-h-screen bg-background">
       <header className="border-b border-border">
-        <div className="mx-auto flex max-w-5xl flex-wrap items-center gap-3 px-4 py-5">
-          <div className="min-w-0 flex-1">
-            <p className="text-xs uppercase tracking-[0.2em] text-brand">Daily Income Steps</p>
-            <h1 className="truncate text-2xl font-bold">Campaign Library</h1>
+        <div className="mx-auto max-w-5xl px-4 py-4">
+          <img
+            src={logoAsset.url}
+            alt="IgnitionBrain Campaigns"
+            className="mb-4 w-full max-w-md rounded-lg"
+          />
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="min-w-0 flex-1">
+              <p className="text-xs uppercase tracking-[0.2em] text-brand">Daily Income Steps</p>
+              <h1 className="truncate text-2xl font-bold">Campaign Library</h1>
+            </div>
+            <Button variant="brand" size="sm" onClick={openCreate}>
+              <Plus /> New
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={async () => {
+                await supabase.auth.signOut();
+                navigate({ to: "/auth" });
+              }}
+            >
+              <LogOut />
+            </Button>
           </div>
-          <Button variant="brand" size="sm" onClick={openCreate}>
-            <Plus /> New
-          </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={async () => {
-              await supabase.auth.signOut();
-              navigate({ to: "/auth" });
-            }}
-          >
-            <LogOut />
-          </Button>
         </div>
       </header>
+
 
       <section className="mx-auto max-w-5xl px-4 py-6">
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
