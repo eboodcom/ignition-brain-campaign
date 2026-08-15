@@ -526,16 +526,40 @@ function CampaignLibrary() {
         <DialogContent className="flex max-h-[92vh] flex-col sm:max-w-2xl">
           <DialogHeader>
             <DialogTitle className="break-words">{htmlTarget?.campaign_name} — HTML</DialogTitle>
-            <DialogDescription>Raw creative source. Copy it straight into HercuList.</DialogDescription>
+            <DialogDescription>
+              Page Snapshot is the portable copy of the destination page. Mailer HTML is the email-safe
+              version to paste into HercuList.
+            </DialogDescription>
           </DialogHeader>
+
+          <div className="grid grid-cols-2 gap-2">
+            <Button
+              size="sm"
+              variant={tab === "snapshot" ? "secondary" : "outline"}
+              onClick={() => setTab("snapshot")}
+            >
+              Page Snapshot
+            </Button>
+            <Button
+              size="sm"
+              variant={tab === "mailer" ? "secondary" : "outline"}
+              onClick={() => setTab("mailer")}
+            >
+              Mailer HTML
+            </Button>
+          </div>
+
           <Button
             variant="brand"
             className="w-full"
-            disabled={!htmlDraft.trim()}
-            onClick={() => copy(htmlDraft, "HTML")}
+            disabled={!activeHtml.trim()}
+            onClick={() =>
+              copy(activeHtml, tab === "mailer" ? "Mailer HTML" : "Page HTML")
+            }
           >
-            <Copy /> Copy All HTML
+            <Copy /> {tab === "mailer" ? "COPY MAILER HTML" : "COPY PAGE HTML"}
           </Button>
+
           <div className="flex flex-wrap items-center gap-2">
             <Button
               size="sm"
@@ -551,42 +575,58 @@ function CampaignLibrary() {
             >
               <Eye /> Preview
             </Button>
-            <Button
-              size="sm"
-              variant="outline"
-              disabled={fetchingHtml || !htmlTarget}
-              onClick={() => {
-                if (!htmlTarget) return;
-                if (
-                  htmlDraft.trim() &&
-                  !window.confirm("Replace the saved HTML snapshot with a fresh copy of the destination page?")
-                )
-                  return;
-                void runCapture(htmlTarget, true);
-              }}
-            >
-              <RefreshCw /> {fetchingHtml ? "Fetching…" : "Refresh From Page"}
-            </Button>
+            {tab === "snapshot" ? (
+              <Button
+                size="sm"
+                variant="outline"
+                disabled={fetchingHtml || !htmlTarget}
+                onClick={() => {
+                  if (!htmlTarget) return;
+                  if (
+                    htmlDraft.trim() &&
+                    !window.confirm("Replace the saved page snapshot with a fresh copy of the destination page?")
+                  )
+                    return;
+                  void runCapture(htmlTarget, true);
+                }}
+              >
+                <RefreshCw /> {fetchingHtml ? "Fetching…" : "Refresh From Page"}
+              </Button>
+            ) : (
+              <Button
+                size="sm"
+                variant="outline"
+                disabled={fetchingHtml || !htmlTarget}
+                onClick={() => void runRegenerate()}
+              >
+                <RefreshCw /> {fetchingHtml ? "Working…" : "Regenerate From Snapshot"}
+              </Button>
+            )}
           </div>
-          {htmlStatus && (
-            <p className="text-xs text-muted-foreground">{htmlStatus}</p>
-          )}
+          {htmlStatus && <p className="text-xs text-muted-foreground">{htmlStatus}</p>}
+
           <div className="min-h-0 flex-1 overflow-auto">
             {previewing ? (
-              <iframe
-                title="Creative preview"
-                sandbox=""
-                srcDoc={htmlDraft}
-                className="h-[50vh] w-full rounded-md border border-border bg-white"
-              />
+              <div className={tab === "mailer" ? "mx-auto w-full max-w-[600px]" : "w-full"}>
+                <iframe
+                  title={tab === "mailer" ? "Mailer preview" : "Page snapshot preview"}
+                  sandbox=""
+                  srcDoc={activeHtml}
+                  className="h-[50vh] w-full rounded-md border border-border bg-white"
+                />
+              </div>
             ) : (
               <Textarea
-                value={htmlDraft}
-                onChange={(e) => setHtmlDraft(e.target.value)}
+                value={activeHtml}
+                onChange={(e) =>
+                  tab === "mailer" ? setMailerDraft(e.target.value) : setHtmlDraft(e.target.value)
+                }
                 placeholder={
                   fetchingHtml
-                    ? "Fetching HTML from the destination page…"
-                    : "No HTML captured yet — use Refresh From Page to fetch the destination, or paste your own creative."
+                    ? "Working…"
+                    : tab === "mailer"
+                      ? "No mailer HTML yet — use Regenerate From Snapshot."
+                      : "No snapshot captured yet — use Refresh From Page."
                 }
                 className="h-[50vh] font-mono text-xs"
               />
@@ -594,12 +634,12 @@ function CampaignLibrary() {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={saveHtml}>
-              Save HTML
+              Save {tab === "mailer" ? "Mailer HTML" : "Page HTML"}
             </Button>
           </DialogFooter>
-
         </DialogContent>
       </Dialog>
+
     </main>
   );
 }
