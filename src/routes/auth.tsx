@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "sonner";
 import logoAsset from "@/assets/ignitionbrain-campaigns.png.asset.json";
-import { isOwnerEmail } from "@/lib/owner.functions";
+import { ensureOwnerAccount, isOwnerEmail } from "@/lib/owner.functions";
 
 
 
@@ -48,6 +48,7 @@ function AuthPage() {
     setBusy(true);
     try {
       const check = await isOwnerEmail({ data: { email } });
+      if (check.ok && check.configured) await ensureOwnerAccount();
       if (!check.ok) throw new Error("Invalid credentials");
       const { error } = await supabase.auth.signInWithPassword({ email, password });
       if (error) throw new Error("Invalid credentials");
