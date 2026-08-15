@@ -28,7 +28,7 @@ import { Code2, Copy, Eye, LinkIcon, LogOut, Pencil, Plus, Files, RefreshCw } fr
 import logoAsset from "@/assets/ignitionbrain-campaigns.png.asset.json";
 import { InstallAppButton } from "@/components/install-app-button";
 import { useServerFn } from "@tanstack/react-start";
-import { captureCampaignHtml } from "@/lib/html-capture.functions";
+import { captureCampaignHtml, regenerateMailerHtml } from "@/lib/html-capture.functions";
 
 
 
@@ -45,6 +45,8 @@ type Campaign = {
   slug: string;
   destination_url: string;
   html_creative: string;
+  raw_source: string;
+  mailer_html: string;
   click_count: number;
   last_clicked_at: string | null;
   is_active: boolean;
@@ -105,10 +107,14 @@ function CampaignLibrary() {
 
   const [htmlTarget, setHtmlTarget] = useState<Campaign | null>(null);
   const [htmlDraft, setHtmlDraft] = useState("");
+  const [mailerDraft, setMailerDraft] = useState("");
+  const [tab, setTab] = useState<"snapshot" | "mailer">("snapshot");
   const [previewing, setPreviewing] = useState(false);
   const [htmlStatus, setHtmlStatus] = useState<string | null>(null);
   const [fetchingHtml, setFetchingHtml] = useState(false);
   const captureHtml = useServerFn(captureCampaignHtml);
+  const regenerateMailer = useServerFn(regenerateMailerHtml);
+  const activeHtml = tab === "mailer" ? mailerDraft : htmlDraft;
 
   const runCapture = async (campaign: Campaign, force: boolean) => {
     setFetchingHtml(true);
@@ -120,7 +126,14 @@ function CampaignLibrary() {
         return false;
       }
       setHtmlDraft(res.html);
-      setHtmlStatus(res.status === "cached" ? "Saved HTML loaded" : "HTML captured and saved");
+      if (res.mailer) setMailerDraft(res.mailer);
+      setHtmlStatus(
+        res.status === "incomplete"
+          ? res.message
+          : res.status === "cached"
+            ? "Saved snapshot loaded"
+            : "Portable snapshot captured and saved",
+      );
       void load();
       return true;
     } catch {
@@ -131,9 +144,31 @@ function CampaignLibrary() {
     }
   };
 
+  const runRegenerate = async () => {
+    if (!htmlTarget) return;
+    setFetchingHtml(true);
+    setHtmlStatus("Rebuilding mailer HTML…");
+    try {
+      const res = await regenerateMailer({ data: { campaignId: htmlTarget.id } });
+      if (res.status === "error" || !res.mailer) {
+        setHtmlStatus(res.message ?? "Could not build mailer HTML");
+        return;
+      }
+      setMailerDraft(res.mailer);
+      setHtmlStatus("Mailer HTML regenerated");
+      void load();
+    } catch {
+      setHtmlStatus("Could not build mailer HTML");
+    } finally {
+      setFetchingHtml(false);
+    }
+  };
+
   const openHtml = (c: Campaign) => {
     setHtmlTarget(c);
     setHtmlDraft(c.html_creative);
+    setMailerDraft(c.mailer_html ?? "");
+    setTab("snapshot");
     setPreviewing(false);
     if (c.html_creative && c.html_creative.trim()) {
       setHtmlStatus("Saved snapshot");
@@ -301,15 +336,14 @@ function CampaignLibrary() {
 
   const saveHtml = async () => {
     if (!htmlTarget) return;
-    const { error } = await supabase
-      .from("campaigns")
-      .update({ html_creative: htmlDraft })
-      .eq("id", htmlTarget.id);
+    const patch =
+      tab === "mailer" ? { mailer_html: mailerDraft } : { html_creative: htmlDraft };
+    const { error } = await supabase.from("campaigns").update(patch).eq("id", htmlTarget.id);
     if (error) {
       toast.error(error.message);
       return;
     }
-    toast.success("HTML saved");
+    toast.success(tab === "mailer" ? "Mailer HTML saved" : "Page HTML saved");
     void load();
   };
 
