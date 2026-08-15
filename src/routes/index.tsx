@@ -415,14 +415,7 @@ function CampaignLibrary() {
                 <Button size="sm" variant="brand" onClick={() => copy(`${BRAND_DOMAIN}/${c.slug}`, "Link")}>
                   <Copy /> Copy Link
                 </Button>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => {
-                    setHtmlTarget(c);
-                    setHtmlDraft(c.html_creative);
-                    setPreviewing(false);
-                  }}
+                <Button size="sm" variant="outline" onClick={() => openHtml(c)}
                 >
                   <Code2 /> HTML Code
                 </Button>
