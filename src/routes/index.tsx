@@ -132,6 +132,26 @@ function CampaignLibrary() {
   const testRedirect = useServerFn(verifyRedirect);
   const brandDomainCheck = useServerFn(checkBrandDomain);
   const [domainStatus, setDomainStatus] = useState<{ connected: boolean; detail: string } | null>(null);
+  const [domainHelpOpen, setDomainHelpOpen] = useState(false);
+  const [verifyingDomain, setVerifyingDomain] = useState(false);
+
+  const runDomainCheck = async (notify = false) => {
+    setVerifyingDomain(true);
+    try {
+      const res = await brandDomainCheck();
+      setDomainStatus({ connected: res.connected, detail: res.detail });
+      if (notify) {
+        if (res.connected) toast.success("Branded domain is connected");
+        else toast.error(`Not connected — ${res.detail}`);
+      }
+    } catch {
+      setDomainStatus({ connected: false, detail: "Domain status unknown" });
+      if (notify) toast.error("Could not check the domain");
+    } finally {
+      setVerifyingDomain(false);
+    }
+  };
+
   const [checks, setChecks] = useState<Record<string, RedirectCheck>>({});
   const [busyId, setBusyId] = useState<string | null>(null);
 
