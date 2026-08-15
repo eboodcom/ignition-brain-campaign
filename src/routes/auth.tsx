@@ -31,7 +31,6 @@ export const Route = createFileRoute("/auth")({
 
 function AuthPage() {
   const navigate = useNavigate();
-  const [mode, setMode] = useState<"signin" | "signup">("signin");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
@@ -46,20 +45,11 @@ function AuthPage() {
     e.preventDefault();
     setBusy(true);
     try {
-      if (mode === "signup") {
-        const { error } = await supabase.auth.signUp({
-          email,
-          password,
-          options: { emailRedirectTo: window.location.origin },
-        });
-        if (error) throw error;
-        toast.success("Account created. You can sign in now.");
-        setMode("signin");
-      } else {
-        const { error } = await supabase.auth.signInWithPassword({ email, password });
-        if (error) throw error;
-        navigate({ to: "/" });
-      }
+      const check = await isOwnerEmail({ data: { email } });
+      if (!check.ok) throw new Error("Invalid credentials");
+      const { error } = await supabase.auth.signInWithPassword({ email, password });
+      if (error) throw new Error("Invalid credentials");
+      navigate({ to: "/" });
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Something went wrong");
     } finally {
@@ -76,14 +66,8 @@ function AuthPage() {
       />
       <Card className="w-full max-w-sm border-border/80">
         <CardHeader>
-          <CardTitle className="font-display text-2xl">
-            {mode === "signin" ? "Owner sign in" : "Create owner account"}
-          </CardTitle>
-          <CardDescription>
-            {mode === "signin"
-              ? "Private access for the IgnitionBrain Campaigns owner."
-              : "One-time setup. Once the owner account exists, registration closes permanently."}
-          </CardDescription>
+          <CardTitle className="font-display text-2xl">Owner sign in</CardTitle>
+          <CardDescription>Private access for the IgnitionBrain Campaigns owner.</CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={submit} className="space-y-4">
@@ -103,30 +87,20 @@ function AuthPage() {
               <Input
                 id="password"
                 type="password"
-                autoComplete={mode === "signin" ? "current-password" : "new-password"}
+                autoComplete="current-password"
                 required
-                minLength={6}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
               />
             </div>
             <Button type="submit" variant="brand" className="w-full" disabled={busy}>
-              {mode === "signin" ? "Sign in" : "Create owner account"}
+              Sign In
             </Button>
           </form>
-          <button
-            type="button"
-            className="mt-4 w-full text-sm text-muted-foreground underline-offset-4 hover:text-brand hover:underline"
-            onClick={() => setMode(mode === "signin" ? "signup" : "signin")}
-          >
-            {mode === "signin" ? "First-time setup? Create the owner account" : "Back to sign in"}
-          </button>
-          <p className="mt-4 text-center text-xs text-muted-foreground">
-            Registration is limited to a single owner account.
-          </p>
         </CardContent>
       </Card>
     </main>
   );
 }
+
 
