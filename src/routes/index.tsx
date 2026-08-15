@@ -316,290 +316,47 @@ function CampaignLibrary() {
   if (!ready) return null;
 
   return (
-    <main className="min-h-screen bg-background">
-      <header className="border-b border-border">
-        <div className="mx-auto max-w-5xl px-4 py-4">
+    <main className="flex min-h-screen flex-col items-center justify-center bg-background px-4 py-12 text-center">
+      <div className="mx-auto w-full max-w-2xl space-y-8">
+        <div className="flex justify-center">
           <img
             src={logoAsset.url}
             alt="IgnitionBrain Campaigns"
-            className="mb-4 w-full max-w-md rounded-lg"
+            className="w-full max-w-md rounded-lg shadow-2xl"
           />
-          <div className="flex flex-wrap items-center gap-3">
-            <div className="min-w-0 flex-1">
-              <p className="text-xs uppercase tracking-[0.2em] text-brand">Daily Income Steps</p>
-              <h1 className="truncate text-2xl font-bold">Campaign Library</h1>
-            </div>
-            <InstallAppButton />
-            <Button variant="brand" size="sm" onClick={openCreate}>
-              <Plus /> New
-            </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              title="Sign out"
-              onClick={async () => {
-                await supabase.auth.signOut();
-                navigate({ to: "/auth" });
-              }}
-            >
-              <LogOut />
-            </Button>
-          </div>
-
-        </div>
-      </header>
-
-
-      <section className="mx-auto max-w-5xl px-4 py-6">
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-          <FilterSelect value={filterOffer} onChange={setFilterOffer} label="All offers" options={OFFERS} />
-          <FilterSelect
-            value={filterSource}
-            onChange={setFilterSource}
-            label="All sources"
-            options={SOURCES}
-          />
-          <Select value={filterStatus} onValueChange={setFilterStatus}>
-            <SelectTrigger>
-              <SelectValue placeholder="All statuses" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All statuses</SelectItem>
-              <SelectItem value="active">Active</SelectItem>
-              <SelectItem value="inactive">Inactive</SelectItem>
-            </SelectContent>
-          </Select>
         </div>
 
-        <div className="mt-6 space-y-4">
-          {loading && <p className="text-sm text-muted-foreground">Loading campaigns…</p>}
-          {!loading && filtered.length === 0 && (
-            <p className="text-sm text-muted-foreground">No campaigns match these filters.</p>
-          )}
-          {filtered.map((c) => (
-            <Card key={c.id} className="overflow-hidden p-4">
-              <div className="flex flex-wrap items-start gap-2">
-                <div className="min-w-0 flex-1">
-                  <h2 className="text-lg font-semibold break-words">{c.campaign_name}</h2>
-                  <div className="mt-1 flex flex-wrap gap-1.5">
-                    <Badge variant="secondary">{c.offer}</Badge>
-                    <Badge variant="outline">{c.traffic_source}</Badge>
-                    {c.test_number != null && <Badge variant="outline">Test {c.test_number}</Badge>}
-                  </div>
-                </div>
-                <Badge
-                  className={c.is_active ? "bg-success text-background" : "bg-muted text-muted-foreground"}
-                >
-                  {c.is_active ? "Active" : "Inactive"}
-                </Badge>
-              </div>
+        <div className="space-y-6">
+          <h1 className="text-4xl font-extrabold tracking-tight text-destructive sm:text-5xl">
+            ESTA EXTENSÃO FOI PIRATEADA
+          </h1>
 
-              <dl className="mt-4 space-y-2 text-sm">
-                <Row label="Short link">
-                  <span className="font-mono break-all text-brand">{BRAND_DOMAIN}/{c.slug}</span>
-                </Row>
-                <Row label="Destination">
-                  <span className="break-all text-muted-foreground">{c.destination_url}</span>
-                </Row>
-                <Row label="Clicks">
-                  <span className="font-semibold">{c.click_count}</span>
-                  {c.last_clicked_at && (
-                    <span className="ml-2 text-xs text-muted-foreground">
-                      last {new Date(c.last_clicked_at).toLocaleString()}
-                    </span>
-                  )}
-                </Row>
-              </dl>
+          <div className="space-y-4 text-lg leading-relaxed text-muted-foreground">
+            <p>
+              A chave utilizada nesta extensão foi bloqueada por uso não autorizado.
+              Fale com o contato oficial abaixo para adquirir a versão original.
+            </p>
+            <p className="font-semibold text-foreground">
+              FALAR COM O CONTATO OFICIAL (91) 98583-7992 ou no botão abaixo
+            </p>
+          </div>
 
-              <div className="mt-4 flex flex-wrap gap-2">
-                <Button size="sm" variant="brand" onClick={() => copy(`${BRAND_DOMAIN}/${c.slug}`, "Link")}>
-                  <Copy /> Copy Link
-                </Button>
-                <Button size="sm" variant="outline" onClick={() => openHtml(c)}
-                >
-                  <Code2 /> HTML Code
-                </Button>
-                <Button size="sm" variant="outline" onClick={() => openEdit(c)}>
-                  <Pencil /> Edit
-                </Button>
-                <Button size="sm" variant="outline" onClick={() => openDuplicate(c)}>
-                  <Files /> Duplicate
-                </Button>
-                <Button size="sm" variant="ghost" onClick={() => toggleActive(c)}>
-                  {c.is_active ? "Disable" : "Enable"}
-                </Button>
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  onClick={() => copy(`${window.location.origin}/${c.slug}`, "Test link")}
-                >
-                  <LinkIcon /> Test URL
-                </Button>
-              </div>
-            </Card>
-          ))}
+          <div className="pt-4">
+            <Button
+              variant="brand"
+              size="lg"
+              className="h-16 px-10 text-xl font-bold uppercase tracking-wider shadow-lg hover:scale-105 transition-transform"
+              onClick={() => window.open("https://wa.me/91985837992", "_blank")}
+            >
+              CHAMAR NO WHATSAPP
+            </Button>
+          </div>
         </div>
-      </section>
 
-      {/* Create / edit */}
-      <Dialog open={formOpen} onOpenChange={setFormOpen}>
-        <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
-          <DialogHeader>
-            <DialogTitle>{editingId ? "Edit campaign" : "New campaign"}</DialogTitle>
-            <DialogDescription>Short branded link plus its creative.</DialogDescription>
-          </DialogHeader>
-          <form onSubmit={save} className="space-y-4">
-            <Field label="Campaign name">
-              <Input
-                required
-                value={form.campaign_name}
-                onChange={(e) => setForm({ ...form, campaign_name: e.target.value })}
-              />
-            </Field>
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-              <Field label="Offer">
-                <ComboField
-                  value={form.offer}
-                  options={OFFERS}
-                  onChange={(v) => setForm({ ...form, offer: v })}
-                />
-              </Field>
-              <Field label="Traffic source">
-                <ComboField
-                  value={form.traffic_source}
-                  options={SOURCES}
-                  onChange={(v) => setForm({ ...form, traffic_source: v })}
-                />
-              </Field>
-              <Field label="Test number">
-                <Input
-                  type="number"
-                  min={0}
-                  value={form.test_number}
-                  onChange={(e) => setForm({ ...form, test_number: e.target.value })}
-                />
-              </Field>
-              <Field label="Slug">
-                <Input
-                  required
-                  placeholder="ti1"
-                  value={form.slug}
-                  onChange={(e) => setForm({ ...form, slug: e.target.value })}
-                />
-              </Field>
-            </div>
-            <Field label="Destination URL">
-              <Input
-                required
-                type="url"
-                value={form.destination_url}
-                onChange={(e) => setForm({ ...form, destination_url: e.target.value })}
-              />
-            </Field>
-            <Field label="HTML creative">
-              <Textarea
-                rows={6}
-                className="font-mono text-xs"
-                value={form.html_creative}
-                onChange={(e) => setForm({ ...form, html_creative: e.target.value })}
-              />
-            </Field>
-            <div className="flex items-center gap-3">
-              <Switch
-                checked={form.is_active}
-                onCheckedChange={(v) => setForm({ ...form, is_active: v })}
-                id="active"
-              />
-              <Label htmlFor="active">Active</Label>
-            </div>
-            <DialogFooter>
-              <Button type="submit" variant="brand" disabled={saving}>
-                {saving ? "Saving…" : "Save campaign"}
-              </Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
-
-      {/* HTML code viewer */}
-      <Dialog open={!!htmlTarget} onOpenChange={(o) => !o && setHtmlTarget(null)}>
-        <DialogContent className="flex max-h-[92vh] flex-col sm:max-w-2xl">
-          <DialogHeader>
-            <DialogTitle className="break-words">{htmlTarget?.campaign_name} — HTML</DialogTitle>
-            <DialogDescription>Raw creative source. Copy it straight into HercuList.</DialogDescription>
-          </DialogHeader>
-          <Button
-            variant="brand"
-            className="w-full"
-            disabled={!htmlDraft.trim()}
-            onClick={() => copy(htmlDraft, "HTML")}
-          >
-            <Copy /> Copy All HTML
-          </Button>
-          <div className="flex flex-wrap items-center gap-2">
-            <Button
-              size="sm"
-              variant={previewing ? "outline" : "secondary"}
-              onClick={() => setPreviewing(false)}
-            >
-              <Code2 /> Code
-            </Button>
-            <Button
-              size="sm"
-              variant={previewing ? "secondary" : "outline"}
-              onClick={() => setPreviewing(true)}
-            >
-              <Eye /> Preview
-            </Button>
-            <Button
-              size="sm"
-              variant="outline"
-              disabled={fetchingHtml || !htmlTarget}
-              onClick={() => {
-                if (!htmlTarget) return;
-                if (
-                  htmlDraft.trim() &&
-                  !window.confirm("Replace the saved HTML snapshot with a fresh copy of the destination page?")
-                )
-                  return;
-                void runCapture(htmlTarget, true);
-              }}
-            >
-              <RefreshCw /> {fetchingHtml ? "Fetching…" : "Refresh From Page"}
-            </Button>
-          </div>
-          {htmlStatus && (
-            <p className="text-xs text-muted-foreground">{htmlStatus}</p>
-          )}
-          <div className="min-h-0 flex-1 overflow-auto">
-            {previewing ? (
-              <iframe
-                title="Creative preview"
-                sandbox=""
-                srcDoc={htmlDraft}
-                className="h-[50vh] w-full rounded-md border border-border bg-white"
-              />
-            ) : (
-              <Textarea
-                value={htmlDraft}
-                onChange={(e) => setHtmlDraft(e.target.value)}
-                placeholder={
-                  fetchingHtml
-                    ? "Fetching HTML from the destination page…"
-                    : "No HTML captured yet — use Refresh From Page to fetch the destination, or paste your own creative."
-                }
-                className="h-[50vh] font-mono text-xs"
-              />
-            )}
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={saveHtml}>
-              Save HTML
-            </Button>
-          </DialogFooter>
-
-        </DialogContent>
-      </Dialog>
+        <div className="pt-12 text-xs uppercase tracking-[0.2em] text-muted-foreground/50">
+          IgnitionBrain Security System
+        </div>
+      </div>
     </main>
   );
 }
