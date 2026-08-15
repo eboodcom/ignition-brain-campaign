@@ -186,7 +186,7 @@ function extractBlocks(portable: string): Block[] {
       const key = text.toLowerCase();
       if (seenText.has(key)) continue;
       seenText.add(key);
-      blocks.push({ type: "text", level: text.length > 60 ? 2 : 4, text });
+      blocks.push({ type: "text", level: text.length > 25 ? 2 : 4, text });
       if (blocks.length > 24) break;
     }
   }
@@ -262,7 +262,7 @@ export function buildMailerHtml(portable: string, options: MailerOptions): strin
     const size = block.level <= 2 ? 20 : block.level === 3 ? 17 : 15;
     const weight = block.level <= 3 ? 700 : 400;
     rows.push(
-      `        <tr><td style="padding:0 0 14px 0;font-family:Arial,Helvetica,sans-serif;font-size:${size}px;` +
+      `        <tr><td align="center" style="padding:0 0 14px 0;font-family:Arial,Helvetica,sans-serif;font-size:${size}px;` +
         `line-height:1.5;font-weight:${weight};color:#222222;">${escapeHtml(block.text)}</td></tr>`,
     );
   }
@@ -277,7 +277,8 @@ export function buildMailerHtml(portable: string, options: MailerOptions): strin
     `<a href="${escapeHtml(options.ctaUrl)}" target="_blank" style="color:#777777;">${escapeHtml(options.ctaUrl)}</a></td></tr>`;
 
   // Put a CTA immediately after the first image (or first) and again at the end.
-  const firstBreak = Math.min(rows.length, rows.findIndex((r) => r.includes("<img")) + 1 || 1);
+  const afterFirstImage = Math.min(rows.length, rows.findIndex((r) => r.includes("<img")) + 1 || 1);
+  const firstBreak = rows.length > 6 ? afterFirstImage : rows.length;
   const body = [
     ...rows.slice(0, firstBreak),
     ctaRow,
