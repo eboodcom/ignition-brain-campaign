@@ -29,6 +29,18 @@ import logoAsset from "@/assets/ignitionbrain-campaigns.png.asset.json";
 import { InstallAppButton } from "@/components/install-app-button";
 import { useServerFn } from "@tanstack/react-start";
 import { captureCampaignHtml, regenerateMailerHtml } from "@/lib/html-capture.functions";
+import { checkBrandDomain, generateRedirect, verifyRedirect } from "@/lib/redirect.functions";
+
+type RedirectCheck = {
+  overall: "working" | "not-generated" | "inactive" | "destination-error";
+  mapping: string;
+  appRoute: string;
+  brandedDomain: string;
+  destination: string;
+  shortUrl: string;
+  testUrl: string;
+  domainConnected: boolean;
+};
 
 
 
@@ -115,6 +127,48 @@ function CampaignLibrary() {
   const captureHtml = useServerFn(captureCampaignHtml);
   const regenerateMailer = useServerFn(regenerateMailerHtml);
   const activeHtml = tab === "mailer" ? mailerDraft : htmlDraft;
+
+  const makeRedirect = useServerFn(generateRedirect);
+  const testRedirect = useServerFn(verifyRedirect);
+  const brandDomainCheck = useServerFn(checkBrandDomain);
+  const [domainStatus, setDomainStatus] = useState<{ connected: boolean; detail: string } | null>(null);
+  const [checks, setChecks] = useState<Record<string, RedirectCheck>>({});
+  const [busyId, setBusyId] = useState<string | null>(null);
+
+  const runVerify = async (c: Campaign, notify = true) => {
+    setBusyId(c.id);
+    try {
+      const res = await testRedirect({ data: { campaignId: c.id, origin: window.location.origin } });
+      setChecks((prev) => ({ ...prev, [c.id]: res as RedirectCheck }));
+      if (notify) {
+        if (res.overall === "working") toast.success("Redirect working");
+        else toast.error(`Redirect: ${res.appRoute}`);
+      }
+    } catch {
+      if (notify) toast.error("Could not test the redirect");
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  const runGenerate = async (c: Campaign) => {
+    setBusyId(c.id);
+    try {
+      const res = await makeRedirect({ data: { campaignId: c.id, origin: window.location.origin } });
+      if (!res.ok) {
+        toast.error(res.message);
+        return;
+      }
+      toast.success(res.message);
+      void load();
+    } catch {
+      toast.error("Could not generate the redirect");
+      return;
+    } finally {
+      setBusyId(null);
+    }
+    await runVerify(c, false);
+  };
 
   const runCapture = async (campaign: Campaign, force: boolean) => {
     setFetchingHtml(true);
@@ -428,13 +482,79 @@ function CampaignLibrary() {
                 </Badge>
               </div>
 
+              <div className="mt-4 rounded-md border border-border p-3">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                    Redirect
+                  </p>
+                  <RedirectBadge
+                    check={checks[c.id]}
+                    isActive={c.is_active}
+                    domainConnected={domainStatus?.connected ?? false}
+                  />
+                </div>
+                <dl className="mt-2 space-y-2 text-sm">
+                  <Row label="From">
+                    <span className="font-mono break-all text-brand">
+                      {BRAND_DOMAIN}/{c.slug}
+                    </span>
+                  </Row>
+                  <Row label="To">
+                    <span className="break-all text-muted-foreground">{c.destination_url}</span>
+                  </Row>
+                  <Row label="Test URL">
+                    <span className="font-mono break-all text-muted-foreground">
+                      {origin}/{c.slug}
+                    </span>
+                  </Row>
+                </dl>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <Button
+                    size="sm"
+                    variant="brand"
+                    onClick={() => copy(`${BRAND_DOMAIN}/${c.slug}`, "Short link")}
+                  >
+                    <Copy /> Copy Short Link
+                  </Button>
+                  <Button size="sm" variant="outline" onClick={() => copy(c.destination_url, "Destination")}>
+                    <Copy /> Copy Destination
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    disabled={busyId === c.id}
+                    onClick={() => void runGenerate(c)}
+                  >
+                    <RefreshCw />{" "}
+                    {checks[c.id]?.overall === "working" ? "Redirect Ready" : "Generate Redirect"}
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    disabled={busyId === c.id}
+                    onClick={() => void runVerify(c)}
+                  >
+                    <LinkIcon /> {busyId === c.id ? "Testing…" : "Test Redirect"}
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => copy(`${window.location.origin}/${c.slug}`, "Test link")}
+                  >
+                    <Copy /> Copy Test URL
+                  </Button>
+                </div>
+                {checks[c.id] && (
+                  <ul className="mt-3 space-y-1 text-xs text-muted-foreground">
+                    <li>Redirect mapping: {checks[c.id]!.mapping}</li>
+                    <li>Lovable route: {checks[c.id]!.appRoute}</li>
+                    <li>Custom domain: {checks[c.id]!.brandedDomain}</li>
+                    <li>Destination: {checks[c.id]!.destination}</li>
+                  </ul>
+                )}
+              </div>
+
               <dl className="mt-4 space-y-2 text-sm">
-                <Row label="Short link">
-                  <span className="font-mono break-all text-brand">{BRAND_DOMAIN}/{c.slug}</span>
-                </Row>
-                <Row label="Destination">
-                  <span className="break-all text-muted-foreground">{c.destination_url}</span>
-                </Row>
                 <Row label="Clicks">
                   <span className="font-semibold">{c.click_count}</span>
                   {c.last_clicked_at && (
@@ -446,11 +566,7 @@ function CampaignLibrary() {
               </dl>
 
               <div className="mt-4 flex flex-wrap gap-2">
-                <Button size="sm" variant="brand" onClick={() => copy(`${BRAND_DOMAIN}/${c.slug}`, "Link")}>
-                  <Copy /> Copy Link
-                </Button>
-                <Button size="sm" variant="outline" onClick={() => openHtml(c)}
-                >
+                <Button size="sm" variant="outline" onClick={() => openHtml(c)}>
                   <Code2 /> HTML Code
                 </Button>
                 <Button size="sm" variant="outline" onClick={() => openEdit(c)}>
@@ -461,13 +577,6 @@ function CampaignLibrary() {
                 </Button>
                 <Button size="sm" variant="ghost" onClick={() => toggleActive(c)}>
                   {c.is_active ? "Disable" : "Enable"}
-                </Button>
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  onClick={() => copy(`${window.location.origin}/${c.slug}`, "Test link")}
-                >
-                  <LinkIcon /> Test URL
                 </Button>
               </div>
             </Card>
