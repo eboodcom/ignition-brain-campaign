@@ -173,7 +173,7 @@ function extractBlocks(portable: string): Block[] {
 
 export type MailerOptions = {
   ctaUrl: string;
-  ctaLabel?: string;
+  ctaLabel?: string | undefined;
   campaignName: string;
   maxImages?: number;
   maxTextBlocks?: number;
