@@ -31,7 +31,7 @@ function resolveSrcset(raw: string, base: URL): string {
     .map((part) => {
       const trimmed = part.trim();
       if (!trimmed) return "";
-      const [url, ...rest] = trimmed.split(/\s+/);
+      const [url = "", ...rest] = trimmed.split(/\s+/);
       return [resolve(url, base), ...rest].join(" ");
     })
     .filter(Boolean)
@@ -88,8 +88,8 @@ export function findUnresolvedUrls(html: string): string[] {
   const attrRe = /\s(?:src|href|action|poster|srcset|data-src|background)\s*=\s*(["'])([^"']*)\1/gi;
   let m: RegExpExecArray | null;
   while ((m = attrRe.exec(html))) {
-    for (const candidate of m[2].split(",")) {
-      const value = candidate.trim().split(/\s+/)[0];
+    for (const candidate of (m[2] ?? "").split(",")) {
+      const value = candidate.trim().split(/\s+/)[0] ?? "";
       if (!value) continue;
       if (/^(https?:|data:|mailto:|tel:|javascript:|#|cid:|\{)/i.test(value)) continue;
       found.add(value);
@@ -97,7 +97,7 @@ export function findUnresolvedUrls(html: string): string[] {
   }
   const cssRe = /url\(\s*(['"]?)([^'")]+)\1\s*\)/gi;
   while ((m = cssRe.exec(html))) {
-    const value = m[2].trim();
+    const value = (m[2] ?? "").trim();
     if (/^(https?:|data:|#|\{)/i.test(value)) continue;
     found.add(value);
   }
@@ -134,7 +134,7 @@ type Block = { type: "image"; src: string; alt: string } | { type: "text"; level
 function extractBlocks(portable: string): Block[] {
   let body = portable;
   const bodyMatch = /<body\b[^>]*>([\s\S]*)<\/body>/i.exec(portable);
-  if (bodyMatch) body = bodyMatch[1];
+  if (bodyMatch?.[1]) body = bodyMatch[1];
 
   for (const tag of ["script", "style", "noscript", "iframe", "form", "svg", "nav", "footer", "head"]) {
     body = stripTag(body, tag);
@@ -158,8 +158,8 @@ function extractBlocks(portable: string): Block[] {
       blocks.push({ type: "image", src, alt: decode(alt) });
       continue;
     }
-    const tag = m[1].toLowerCase();
-    const text = decode(m[2].replace(/<[^>]+>/g, " ")).replace(/\s+/g, " ").trim();
+    const tag = (m[1] ?? "").toLowerCase();
+    const text = decode((m[2] ?? "").replace(/<[^>]+>/g, " ")).replace(/\s+/g, " ").trim();
     if (text.length < 3 || text.length > 600) continue;
     const key = text.toLowerCase();
     if (seenText.has(key)) continue;
