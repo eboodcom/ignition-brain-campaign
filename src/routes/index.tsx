@@ -465,6 +465,7 @@ function CampaignLibrary() {
             <div className="min-w-0 flex-1">
               <p className="text-xs uppercase tracking-[0.2em] text-brand">Daily Income Steps</p>
               <h1 className="truncate text-2xl font-bold">Campaign Library</h1>
+              <p className="text-sm text-muted-foreground">Track links, creatives and campaign results in one place.</p>
             </div>
             <InstallAppButton />
             <Button variant="brand" size="sm" onClick={openCreate}>
