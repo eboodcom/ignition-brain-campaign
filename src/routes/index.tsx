@@ -547,6 +547,9 @@ function CampaignLibrary() {
           </div>
         </Card>
       </div>
+      <div className="mx-auto max-w-5xl px-4 pt-2">
+        <p className="text-xs text-muted-foreground">Tip: use Verify Domain after making DNS or deployment changes.</p>
+      </div>
 
       <Dialog open={domainHelpOpen} onOpenChange={setDomainHelpOpen}>
         <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
