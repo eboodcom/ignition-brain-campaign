@@ -64,6 +64,13 @@ type Campaign = {
   is_active: boolean;
   created_at: string;
   updated_at: string;
+  traffic_sent: number;
+  leads: number;
+  sales: number;
+  cost: number;
+  revenue: number;
+  notes: string | null;
+  test_status: string;
 };
 
 const OFFERS = ["Traffic Ignition", "Gotta Have Traffic", "Daily Income Method", "Other"];
