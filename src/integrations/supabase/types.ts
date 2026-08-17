@@ -32,6 +32,13 @@ export type Database = {
           traffic_source: string
           updated_at: string
           user_id: string | null
+          traffic_sent: number
+          leads: number
+          sales: number
+          cost: number
+          revenue: number
+          notes: string | null
+          test_status: string
         }
         Insert: {
           campaign_name: string
@@ -50,6 +57,13 @@ export type Database = {
           traffic_source?: string
           updated_at?: string
           user_id?: string | null
+          traffic_sent?: number
+          leads?: number
+          sales?: number
+          cost?: number
+          revenue?: number
+          notes?: string | null
+          test_status?: string
         }
         Update: {
           campaign_name?: string
@@ -68,6 +82,13 @@ export type Database = {
           traffic_source?: string
           updated_at?: string
           user_id?: string | null
+          traffic_sent?: number
+          leads?: number
+          sales?: number
+          cost?: number
+          revenue?: number
+          notes?: string | null
+          test_status?: string
         }
         Relationships: []
       }
